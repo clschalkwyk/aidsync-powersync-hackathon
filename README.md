@@ -1,28 +1,40 @@
 # AidSync
 
-AidSync is an offline-first field medication safety app for clinicians working in low-connectivity environments.
+AidSync is an offline-first field medication safety system for clinicians working in low-connectivity environments.
 
 It is designed for rural outreach, disaster response, and similar settings where patient care must continue even when the network does not.
 
 The core workflow is:
 
-1. `Scan`
-2. `Check`
-3. `Record`
-4. `Sync`
+1. `Prepare`
+2. `Sync`
+3. `Check`
+4. `Record`
+5. `Sync back`
+
+## Product Narrative
+
+AidSync is not just a leaflet scanning app.
+
+The stronger system is:
+
+- medication safety reference data is prepared online
+- that reference data is synced to field devices through PowerSync
+- clinicians use the local data offline during care sessions
+- encounter outcomes sync back when connectivity returns
+
+This makes PowerSync central to the product rather than incidental infrastructure.
 
 ## What AidSync Does
 
-AidSync helps clinicians:
+AidSync helps teams:
 
-- access synced patient records from local SQLite
-- create and update encounters offline
-- review allergies, conditions, and current medications before treatment decisions
-- scan medicine inserts or leaflets
-- extract decision-critical medication safety data from OCR text
-- compare that data against patient context on-device
-- save warnings, reasoning, and clinician actions into encounter history
-- sync updates back to the backend when connectivity returns
+- ingest and normalize medication leaflet data online
+- publish medication safety reference data to devices
+- sync patient records and reference data into local SQLite
+- run medication suitability checks offline against patient context
+- record clinician reasoning and actions locally first
+- sync encounter outcomes back to the backend later
 
 ## What AidSync Is Not
 
@@ -35,42 +47,74 @@ AidSync is not:
 
 The product is best understood as a clinical safety assist plus field workflow tool.
 
+## Primary System Design
+
+### Online surfaces
+
+The online surface prepares medication knowledge for field use:
+
+- ingest leaflet content or medication reference data
+- review and normalize decision-critical medication safety fields
+- manage a medication catalog and safety reference data
+- review synced encounters and clinician actions
+
+### Offline field surface
+
+The mobile app handles the care session itself:
+
+- open synced patient records from local SQLite
+- start and update encounters offline
+- review allergies, conditions, and current medications
+- select or scan medication data available on-device
+- run deterministic local safety checks
+- save the outcome locally
+
+### Sync loop
+
+PowerSync keeps shared state moving between both sides:
+
+- medication reference data syncs down to devices
+- encounter results sync back up
+- local SQLite remains the primary runtime data plane on device
+
 ## Why This Exists
 
 In field care settings, connectivity often fails at exactly the wrong time.
 
 AidSync keeps the critical workflow local-first:
 
-- patient history stays available offline
-- encounter updates can be created locally
-- medication checks can run against local patient context
+- patient history remains available offline
+- medication reference data remains queryable offline
+- encounter updates succeed locally
+- safety checks run against local patient context
 - sync happens later through PowerSync when the connection returns
 
 ## Core Product Flow
 
-1. A clinician opens a patient record from local storage
-2. The clinician starts a new encounter
-3. The clinician records notes, vitals, attachments, or voice notes
-4. The clinician scans a medicine leaflet or insert
-5. OCR extracts raw text
-6. The app extracts decision-critical medication safety data
-7. A deterministic Dart rules engine compares the medication data against:
+1. A supervisor or operator ingests medication reference data online
+2. The reviewed medication data is stored in Supabase/Postgres
+3. PowerSync Sync Streams sync that medication reference data to local SQLite on devices
+4. A clinician opens a patient record from local storage
+5. The clinician starts a new encounter offline if necessary
+6. The clinician selects or scans a medication leaflet
+7. The app resolves decision-critical medication safety data
+8. A deterministic Dart rules engine compares the medication data against:
    - allergies
    - current medications
    - known conditions
    - pregnancy or age-related cautions
-8. The app shows an explainable result such as:
+9. The app shows an explainable result such as:
    - `Safe to consider`
    - `Use caution`
    - `Do not give`
    - `Manual review required`
-9. The clinician stores the outcome in encounter history
-10. PowerSync syncs the data back to Supabase when the network is available
+10. The clinician stores the outcome in encounter history
+11. PowerSync syncs the encounter updates back to Supabase when the network is available
 
 ## Tech Stack
 
 - `Flutter` for the mobile app
-- `PowerSync` for local SQLite sync
+- `PowerSync` for local SQLite sync using Sync Streams
 - `Supabase` for Auth, Postgres, and Storage
 - `Dart` rules engine for deterministic medication safety checks
 - `Cactus` for hybrid doctor note transcription
@@ -83,8 +127,9 @@ AidSync depends on PowerSync for the product to make sense.
 PowerSync is not included as a generic sync checkbox. It is the layer that makes the main demo credible:
 
 - patient records are queryable locally in SQLite
+- medication reference data is synced to field devices
 - encounter writes succeed offline
-- medication checks run against local patient state
+- local safety checks run against local patient state and local medication data
 - updates reconcile later when connectivity returns
 
 This is the central technical story of the project.
@@ -95,10 +140,10 @@ This is the central technical story of the project.
 
 Used meaningfully for:
 
-- syncing patient data and reference data to local SQLite
+- syncing patient data and medication reference data to local SQLite
 - enabling offline encounter creation and updates
 - keeping the app usable under intermittent connectivity
-- syncing interaction check history and clinician actions back upstream
+- syncing clinician decisions, warnings, and encounter history back upstream
 
 ### Supabase
 
@@ -107,7 +152,7 @@ Used meaningfully for:
 - authentication
 - primary Postgres system of record
 - storage for attachments and scan assets
-- optional backend workflows and review tooling
+- online medication reference ingestion and review workflows
 
 ### Cactus
 
@@ -120,7 +165,7 @@ Used meaningfully for:
 
 ```txt
 aidsync/                 Flutter app for field clinicians
-aidsync_dashboard/       Supporting dashboard/docs area
+aidsync_dashboard/       Dashboard/docs and online review surface
 aidsync_gemma/           Gemma extraction experiment app
 powersync/               PowerSync sync streams and notes
 supabase/                Supabase config, migrations, and seed files
@@ -130,15 +175,15 @@ supabase/                Supabase config, migrations, and seed files
 
 The strongest version of AidSync is:
 
-An offline-first field medication safety copilot where clinicians can scan a medicine leaflet, extract decision-critical safety data, compare it against local patient history, store the outcome locally, and rely on PowerSync to reconcile everything later.
+An offline-first medication safety copilot where medication reference data is prepared online, synced to field devices with PowerSync, used locally during disconnected care sessions, and synced back into a reviewable audit trail when connectivity returns.
 
 That means the current focus is:
 
 - one strong end-to-end mobile workflow
+- one clear online medication reference workflow
 - visible offline behavior
 - visible sync recovery
 - explainable safety reasoning
-- a minimal online review surface, not a large dashboard
 
 ## MVP Scope
 
@@ -148,32 +193,31 @@ That means the current focus is:
 - patient detail
 - encounter creation
 - allergies and current medications
-- scan leaflet or upload image
-- OCR pipeline
-- extraction of decision-critical medication safety fields
+- medication reference data available locally on device
+- leaflet or medication ingestion online
 - deterministic safety checks in Dart
 - local save of warning outcomes into encounter history
-- PowerSync sync between device and backend
+- PowerSync sync between device and backend using Sync Streams
 
 ### Strong Enhancers
 
 - voice note attached to encounter
 - sync status and pending changes UI
 - extraction confidence and manual review controls
-- lightweight review dashboard
+- lightweight online review dashboard
 
 ## Demo Flow
 
-1. Open the app online and sync patient data
-2. Open a patient record from local SQLite
-3. Start a new encounter
-4. Scan or upload a medicine leaflet
-5. Show extracted medication safety data
-6. Run an on-device safety check against patient context
+1. Open the dashboard online
+2. Load or review medication safety reference data
+3. Show that the medication data syncs to the mobile device
+4. Open the mobile app and load patient data from local SQLite
+5. Start a new encounter
+6. Run an on-device safety check against local patient context and local medication data
 7. Save the result locally
 8. Turn connectivity off and continue working
 9. Turn connectivity back on and show successful sync
-10. Optionally review the synced result in the dashboard
+10. Review the synced outcome in the dashboard
 
 ## Example Decision Output
 
@@ -183,11 +227,11 @@ Patient context:
 - current medication: warfarin
 - condition: pregnancy
 
-Scanned medication data:
+Medication reference data:
 
 - active ingredient: amoxicillin
-- interaction warning: anticoagulants
-- pregnancy warning present
+- major interaction warning: anticoagulants
+- pregnancy caution present
 
 Expected result:
 
