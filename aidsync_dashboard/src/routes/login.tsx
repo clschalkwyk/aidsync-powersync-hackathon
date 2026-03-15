@@ -41,16 +41,11 @@ function LoginPage() {
     setIsLoading(true)
     setError(null)
 
-    console.log('Login form submitted')
     const { error } = await signIn(email, password)
     
     if (error) {
-      console.error('Sign in error:', error)
       setError(error.message || 'Invalid email or password. Please try again.')
       setIsLoading(false)
-    } else {
-      console.log('Sign in call successful')
-      navigate({ to: redirectTarget as '/overview' })
     }
   }
 

@@ -1,10 +1,15 @@
 import { RouterProvider } from '@tanstack/react-router'
+import { useEffect } from 'react'
 import { Activity } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { router } from '@/lib/router'
 
 export function App() {
   const auth = useAuth()
+
+  useEffect(() => {
+    router.invalidate()
+  }, [auth.user, auth.isLoading, auth.profile])
 
   if (auth.isLoading) {
     return (
