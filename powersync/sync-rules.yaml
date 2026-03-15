@@ -1,0 +1,111 @@
+config:
+  edition: 3
+
+streams:
+  profile_self:
+    auto_subscribe: true
+    query: |
+      SELECT *
+      FROM profiles
+      WHERE id = auth.user_id()
+
+  reference_data:
+    auto_subscribe: true
+    queries:
+      - |
+        SELECT *
+        FROM active_ingredients
+        WHERE auth.parameter('role') = 'clinician'
+           OR auth.parameter('role') = 'supervisor'
+           OR auth.parameter('role') = 'admin'
+      - |
+        SELECT *
+        FROM medication_catalog
+        WHERE is_active = true
+          AND (
+            auth.parameter('role') = 'clinician'
+            OR auth.parameter('role') = 'supervisor'
+            OR auth.parameter('role') = 'admin'
+          )
+      - |
+        SELECT *
+        FROM medication_catalog_ingredients
+        WHERE auth.parameter('role') = 'clinician'
+           OR auth.parameter('role') = 'supervisor'
+           OR auth.parameter('role') = 'admin'
+      - |
+        SELECT *
+        FROM medication_interaction_rules
+        WHERE is_active = true
+          AND (
+            auth.parameter('role') = 'clinician'
+            OR auth.parameter('role') = 'supervisor'
+            OR auth.parameter('role') = 'admin'
+          )
+      - |
+        SELECT *
+        FROM medication_contraindication_rules
+        WHERE is_active = true
+          AND (
+            auth.parameter('role') = 'clinician'
+            OR auth.parameter('role') = 'supervisor'
+            OR auth.parameter('role') = 'admin'
+          )
+
+  clinical_data:
+    auto_subscribe: true
+    queries:
+      - |
+        SELECT *
+        FROM patients
+        WHERE auth.parameter('role') = 'clinician'
+           OR auth.parameter('role') = 'supervisor'
+           OR auth.parameter('role') = 'admin'
+      - |
+        SELECT *
+        FROM patient_allergies
+        WHERE auth.parameter('role') = 'clinician'
+           OR auth.parameter('role') = 'supervisor'
+           OR auth.parameter('role') = 'admin'
+      - |
+        SELECT *
+        FROM patient_conditions
+        WHERE auth.parameter('role') = 'clinician'
+           OR auth.parameter('role') = 'supervisor'
+           OR auth.parameter('role') = 'admin'
+      - |
+        SELECT *
+        FROM current_medications
+        WHERE auth.parameter('role') = 'clinician'
+           OR auth.parameter('role') = 'supervisor'
+           OR auth.parameter('role') = 'admin'
+      - |
+        SELECT *
+        FROM encounters
+        WHERE auth.parameter('role') = 'clinician'
+           OR auth.parameter('role') = 'supervisor'
+           OR auth.parameter('role') = 'admin'
+      - |
+        SELECT *
+        FROM vitals
+        WHERE auth.parameter('role') = 'clinician'
+           OR auth.parameter('role') = 'supervisor'
+           OR auth.parameter('role') = 'admin'
+      - |
+        SELECT *
+        FROM scanned_inserts
+        WHERE auth.parameter('role') = 'clinician'
+           OR auth.parameter('role') = 'supervisor'
+           OR auth.parameter('role') = 'admin'
+      - |
+        SELECT *
+        FROM interaction_checks
+        WHERE auth.parameter('role') = 'clinician'
+           OR auth.parameter('role') = 'supervisor'
+           OR auth.parameter('role') = 'admin'
+      - |
+        SELECT *
+        FROM attachments
+        WHERE auth.parameter('role') = 'clinician'
+           OR auth.parameter('role') = 'supervisor'
+           OR auth.parameter('role') = 'admin'

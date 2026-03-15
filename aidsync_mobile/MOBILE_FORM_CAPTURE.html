@@ -1,0 +1,908 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AidSync Mobile Form Capture</title>
+    <style>
+      :root {
+        --bg: #eef6f7;
+        --panel: #ffffff;
+        --panel-soft: #f4fbfc;
+        --ink: #123644;
+        --muted: #5f7f89;
+        --line: #d8e8eb;
+        --brand: #0e8aa8;
+        --brand-deep: #0c6f8a;
+        --accent: #13a47f;
+        --warn: #b54708;
+        --danger: #b42318;
+        --success: #027a48;
+        --shadow: 0 18px 40px rgba(14, 138, 168, 0.12);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background:
+          radial-gradient(circle at top left, rgba(19, 164, 127, 0.08), transparent 28%),
+          radial-gradient(circle at top right, rgba(14, 138, 168, 0.08), transparent 24%),
+          var(--bg);
+        color: var(--ink);
+      }
+
+      main {
+        max-width: 1700px;
+        margin: 0 auto;
+        padding: 32px 24px 56px;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      .header {
+        margin-bottom: 28px;
+      }
+
+      .header h1 {
+        font-size: 32px;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+      }
+
+      .header p {
+        margin-top: 10px;
+        max-width: 860px;
+        line-height: 1.6;
+        color: var(--muted);
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 22px;
+      }
+
+      .screen {
+        background: rgba(255, 255, 255, 0.68);
+        border: 1px solid rgba(18, 54, 68, 0.06);
+        border-radius: 30px;
+        padding: 16px;
+        box-shadow: var(--shadow);
+      }
+
+      .screen-meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 12px;
+        margin-bottom: 14px;
+      }
+
+      .screen-meta h2 {
+        font-size: 17px;
+        font-weight: 800;
+      }
+
+      .screen-meta p {
+        margin-top: 4px;
+        font-size: 13px;
+        line-height: 1.45;
+        color: var(--muted);
+      }
+
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        min-height: 30px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: rgba(14, 138, 168, 0.12);
+        color: var(--brand-deep);
+        font-size: 12px;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      .phone {
+        border-radius: 32px;
+        background: linear-gradient(180deg, #ffffff 0%, #f7fbfc 100%);
+        border: 1px solid rgba(18, 54, 68, 0.08);
+        overflow: hidden;
+        min-height: 760px;
+      }
+
+      .phone-header {
+        padding: 20px 20px 12px;
+      }
+
+      .eyebrow {
+        color: var(--brand);
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+
+      .title {
+        margin-top: 10px;
+        font-size: 28px;
+        line-height: 1.06;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+      }
+
+      .body-copy {
+        margin-top: 8px;
+        font-size: 14px;
+        line-height: 1.58;
+        color: var(--muted);
+      }
+
+      .hero {
+        margin: 18px 20px 0;
+        padding: 22px;
+        border-radius: 28px;
+        background: linear-gradient(135deg, var(--brand-deep), var(--brand), var(--accent));
+        color: #fff;
+      }
+
+      .hero p {
+        margin-top: 10px;
+        font-size: 14px;
+        line-height: 1.58;
+        color: rgba(255, 255, 255, 0.88);
+      }
+
+      .hero-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 14px;
+      }
+
+      .hero-tags .chip {
+        background: rgba(255, 255, 255, 0.14);
+        color: #fff;
+      }
+
+      .stack {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        padding: 18px 20px 24px;
+      }
+
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 24px;
+        padding: 16px;
+      }
+
+      .panel.soft {
+        background: var(--panel-soft);
+      }
+
+      .panel h3 {
+        font-size: 18px;
+        font-weight: 800;
+      }
+
+      .panel p {
+        margin-top: 6px;
+        font-size: 13px;
+        line-height: 1.5;
+        color: var(--muted);
+      }
+
+      .field {
+        margin-top: 12px;
+      }
+
+      .label {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--muted);
+      }
+
+      .input,
+      .textarea,
+      .select {
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: #fff;
+        padding: 14px 16px;
+        font-size: 14px;
+        color: var(--ink);
+      }
+
+      .textarea {
+        min-height: 92px;
+        resize: none;
+      }
+
+      .two-col {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .three-col {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 14px;
+      }
+
+      .metric {
+        border-radius: 18px;
+        background: rgba(14, 138, 168, 0.08);
+        padding: 12px;
+      }
+
+      .metric .k {
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+
+      .metric .v {
+        margin-top: 8px;
+        font-size: 22px;
+        font-weight: 800;
+      }
+
+      .list {
+        margin-top: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .item {
+        border-radius: 20px;
+        border: 1px solid var(--line);
+        background: #fff;
+        padding: 14px;
+      }
+
+      .item-title {
+        font-size: 16px;
+        font-weight: 800;
+      }
+
+      .item-sub {
+        margin-top: 6px;
+        font-size: 13px;
+        line-height: 1.5;
+        color: var(--muted);
+      }
+
+      .tag-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
+      }
+
+      .decision {
+        background: #f4e0b8;
+      }
+
+      .decision.red {
+        background: rgba(180, 35, 24, 0.12);
+      }
+
+      .decision.green {
+        background: rgba(2, 122, 72, 0.12);
+      }
+
+      .button-row {
+        display: flex;
+        gap: 12px;
+        margin-top: 16px;
+      }
+
+      .button {
+        flex: 1;
+        min-height: 50px;
+        border-radius: 18px;
+        border: 1px solid var(--line);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        font-weight: 800;
+      }
+
+      .button.primary {
+        background: var(--brand);
+        border-color: var(--brand);
+        color: #fff;
+      }
+
+      .button.ghost {
+        background: #fff;
+        color: var(--ink);
+      }
+
+      .footer-note {
+        margin-top: 12px;
+        padding: 12px 14px;
+        border-radius: 18px;
+        background: rgba(14, 138, 168, 0.08);
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.5;
+      }
+
+      @media (max-width: 520px) {
+        .two-col,
+        .three-col {
+          grid-template-columns: 1fr;
+        }
+
+        .button-row {
+          flex-direction: column;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="header">
+        <h1>AidSync Mobile Form Capture</h1>
+        <p>
+          Static HTML capture of the current mobile surfaces with sample data filled in. This is intended
+          as redesign reference material, not as a polished proposal. The goal is to make the current
+          information architecture visible outside Flutter so the next interface pass can be deliberate.
+        </p>
+      </div>
+
+      <section class="grid">
+        <article class="screen">
+          <div class="screen-meta">
+            <div>
+              <h2>1. Sign In</h2>
+              <p>Current entry point before offline unlock is enabled.</p>
+            </div>
+            <span class="chip">Authentication</span>
+          </div>
+          <div class="phone">
+            <div class="hero">
+              <div class="eyebrow">Field medication safety</div>
+              <div class="title">AidSync Mobile</div>
+              <p>Prepare medication reference data online. Use it offline during care sessions. Sync back when connectivity returns.</p>
+              <div class="hero-tags">
+                <span class="chip">Prepared online</span>
+                <span class="chip">Used offline</span>
+                <span class="chip">PowerSync enabled</span>
+              </div>
+            </div>
+            <div class="stack">
+              <div class="panel">
+                <div class="field">
+                  <label class="label">Email</label>
+                  <div class="input">clinician@aidsync.org</div>
+                </div>
+                <div class="field">
+                  <label class="label">Password</label>
+                  <div class="input">••••••••••••</div>
+                </div>
+                <div class="button-row">
+                  <div class="button primary">Sign in and prepare offline access</div>
+                </div>
+                <div class="footer-note">After the first online sign-in, the app can reopen with a local device PIN while offline.</div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="screen">
+          <div class="screen-meta">
+            <div>
+              <h2>2. PIN Unlock</h2>
+              <p>Local re-entry screen for an already authenticated clinician.</p>
+            </div>
+            <span class="chip">Offline unlock</span>
+          </div>
+          <div class="phone">
+            <div class="phone-header">
+              <div class="eyebrow">Device unlock</div>
+              <div class="title">Unlock device access</div>
+              <p class="body-copy">Use your local 4-digit PIN to unlock AidSync Mobile and continue working offline.</p>
+            </div>
+            <div class="stack">
+              <div class="panel">
+                <p>Signed in as clinician@aidsync.org</p>
+                <div class="field">
+                  <label class="label">4-digit PIN</label>
+                  <div class="input">4421</div>
+                </div>
+                <div class="button-row">
+                  <div class="button primary">Unlock local workspace</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="screen">
+          <div class="screen-meta">
+            <div>
+              <h2>3. Briefing</h2>
+              <p>Current start screen after unlock.</p>
+            </div>
+            <span class="chip">Home</span>
+          </div>
+          <div class="phone">
+            <div class="hero">
+              <div class="title">AidSync Mobile</div>
+              <p>A field-ready medication safety sidekick for low-connectivity care.</p>
+              <div class="hero-tags">
+                <span class="chip">clinician@aidsync.org</span>
+                <span class="chip">aidsync-mobile-1</span>
+                <span class="chip">Prepared online, used offline</span>
+              </div>
+            </div>
+            <div class="stack">
+              <div class="panel soft">
+                <h3>Device ready</h3>
+                <p>PowerSync is connected. Local data is available for care workflows.</p>
+                <div class="tag-row">
+                  <span class="chip">12 patients</span>
+                  <span class="chip">48 medications</span>
+                </div>
+              </div>
+              <div class="panel">
+                <h3>Field readiness</h3>
+                <p>Use the local caseload and synced medication catalog to move straight into treatment checks.</p>
+                <div class="three-col">
+                  <div class="metric"><div class="k">Patients ready</div><div class="v">12</div></div>
+                  <div class="metric"><div class="k">Meds on device</div><div class="v">48</div></div>
+                  <div class="metric"><div class="k">Checks stored</div><div class="v">7</div></div>
+                </div>
+              </div>
+              <div class="panel">
+                <h3>Quick actions</h3>
+                <div class="button-row">
+                  <div class="button ghost">Open patients</div>
+                  <div class="button ghost">Run check</div>
+                  <div class="button ghost">Refresh sync</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="screen">
+          <div class="screen-meta">
+            <div>
+              <h2>4. Patient Queue</h2>
+              <p>Searchable offline patient list.</p>
+            </div>
+            <span class="chip">Patients</span>
+          </div>
+          <div class="phone">
+            <div class="phone-header">
+              <div class="eyebrow">Patient queue</div>
+              <div class="title">Field patient files</div>
+              <p class="body-copy">Search the local caseload first. Open a patient file only when you are ready to review full context.</p>
+            </div>
+            <div class="stack">
+              <div class="panel">
+                <div class="field">
+                  <label class="label">Search local patients</label>
+                  <div class="input">Martha</div>
+                </div>
+                <div class="button-row">
+                  <div class="button ghost">3 available offline</div>
+                  <div class="button ghost">Refresh</div>
+                </div>
+                <div class="button-row">
+                  <div class="button primary">Add patient</div>
+                </div>
+                <div class="list">
+                  <div class="item">
+                    <div class="item-title">Martha Ndlovu</div>
+                    <div class="item-sub">34y • Female • Masisizane Outreach Clinic</div>
+                    <div class="tag-row">
+                      <span class="chip">Available offline</span>
+                    </div>
+                  </div>
+                  <div class="item">
+                    <div class="item-title">Martha Ncube</div>
+                    <div class="item-sub">29y • Female • Mpilo Mobile Unit</div>
+                    <div class="tag-row">
+                      <span class="chip">Available offline</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="screen">
+          <div class="screen-meta">
+            <div>
+              <h2>5. New Patient Form</h2>
+              <p>Current local patient intake form.</p>
+            </div>
+            <span class="chip">Form</span>
+          </div>
+          <div class="phone">
+            <div class="phone-header">
+              <div class="eyebrow">Patient entry</div>
+              <div class="title">Create a local patient file</div>
+              <p class="body-copy">Capture the essentials first. This record saves on-device immediately and syncs later.</p>
+            </div>
+            <div class="stack">
+              <div class="panel">
+                <h3>Identity</h3>
+                <div class="field">
+                  <label class="label">Full name</label>
+                  <div class="input">Martha Ndlovu</div>
+                </div>
+                <div class="field">
+                  <label class="label">Date of birth</label>
+                  <div class="input">1991-08-14</div>
+                </div>
+                <h3 style="margin-top:16px;">Clinical context</h3>
+                <div class="two-col">
+                  <div class="field">
+                    <label class="label">Sex</label>
+                    <div class="select">Female</div>
+                  </div>
+                  <div class="field">
+                    <label class="label">Pregnancy status</label>
+                    <div class="select">Not pregnant</div>
+                  </div>
+                </div>
+                <h3 style="margin-top:16px;">Location</h3>
+                <div class="field">
+                  <label class="label">Location or facility</label>
+                  <div class="input">Masisizane Outreach Clinic</div>
+                </div>
+                <div class="footer-note">This patient file is written to local SQLite first and uploaded later when connectivity returns.</div>
+                <div class="button-row">
+                  <div class="button primary">Save patient locally</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="screen">
+          <div class="screen-meta">
+            <div>
+              <h2>6. Patient Detail</h2>
+              <p>Current chart-like patient view before moving into assessment.</p>
+            </div>
+            <span class="chip">Detail</span>
+          </div>
+          <div class="phone">
+            <div class="phone-header">
+              <div class="eyebrow">Patient detail</div>
+              <div class="title">Martha Ndlovu</div>
+              <p class="body-copy">Review risk context first, then move into the medication check.</p>
+            </div>
+            <div class="stack">
+              <div class="panel">
+                <div class="tag-row">
+                  <span class="chip">Female</span>
+                  <span class="chip">34 years</span>
+                  <span class="chip">Not pregnant</span>
+                  <span class="chip">Masisizane Outreach Clinic</span>
+                </div>
+                <div class="three-col">
+                  <div class="metric"><div class="k">Allergies</div><div class="v">1</div></div>
+                  <div class="metric"><div class="k">Conditions</div><div class="v">2</div></div>
+                  <div class="metric"><div class="k">Current meds</div><div class="v">2</div></div>
+                </div>
+                <div class="button-row">
+                  <div class="button primary">Check medication</div>
+                </div>
+              </div>
+              <div class="panel">
+                <h3>Allergies</h3>
+                <div class="list">
+                  <div class="item">
+                    <div class="item-title">Paracetamol • Severe</div>
+                    <div class="item-sub">Previous reaction: diffuse rash and lip swelling.</div>
+                  </div>
+                </div>
+              </div>
+              <div class="panel">
+                <h3>Current medications</h3>
+                <div class="list">
+                  <div class="item">
+                    <div class="item-title">Azithromycin</div>
+                    <div class="item-sub">Ingredients: azithromycin\nDose: 500 mg daily</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="screen">
+          <div class="screen-meta">
+            <div>
+              <h2>7. Meds List</h2>
+              <p>Current synced medication catalog on device.</p>
+            </div>
+            <span class="chip">Meds</span>
+          </div>
+          <div class="phone">
+            <div class="phone-header">
+              <div class="eyebrow">Medication reference</div>
+              <div class="title">Meds on this device</div>
+              <p class="body-copy">Review the synced medication catalog prepared online.</p>
+            </div>
+            <div class="stack">
+              <div class="panel">
+                <div class="field">
+                  <label class="label">Search meds</label>
+                  <div class="input">Panado</div>
+                </div>
+                <div class="button-row">
+                  <div class="button ghost">2 available offline</div>
+                  <div class="button ghost">Refresh</div>
+                </div>
+                <div class="list">
+                  <div class="item">
+                    <div class="item-title">Panado Capsules</div>
+                    <div class="item-sub">Paracetamol • 500 mg • Capsule</div>
+                    <div class="tag-row">
+                      <span class="chip">Prepared online</span>
+                      <span class="chip">Available offline</span>
+                    </div>
+                  </div>
+                  <div class="item">
+                    <div class="item-title">Panado 250</div>
+                    <div class="item-sub">Paracetamol • 250 mg/5 mL • Syrup</div>
+                    <div class="tag-row">
+                      <span class="chip">Prepared online</span>
+                      <span class="chip">Available offline</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="screen">
+          <div class="screen-meta">
+            <div>
+              <h2>8. Medication Detail</h2>
+              <p>Current medicine reference detail assembled from synced catalog and rules.</p>
+            </div>
+            <span class="chip">Reference</span>
+          </div>
+          <div class="phone">
+            <div class="phone-header">
+              <div class="eyebrow">Medication reference</div>
+              <div class="title">Panado Capsules</div>
+              <p class="body-copy">Prepared online and synced to local SQLite for offline review and treatment checks.</p>
+            </div>
+            <div class="stack">
+              <div class="panel">
+                <div class="tag-row">
+                  <span class="chip">Paracetamol</span>
+                  <span class="chip">500 mg</span>
+                  <span class="chip">Capsule</span>
+                  <span class="chip">Adcock Ingram</span>
+                  <span class="chip">rxnorm</span>
+                </div>
+                <div class="three-col">
+                  <div class="metric"><div class="k">Ingredients</div><div class="v">1</div></div>
+                  <div class="metric"><div class="k">Contraindications</div><div class="v">3</div></div>
+                  <div class="metric"><div class="k">Interactions</div><div class="v">2</div></div>
+                </div>
+                <div class="button-row">
+                  <div class="button primary">Review in Assess</div>
+                </div>
+              </div>
+              <div class="panel">
+                <h3>Active ingredients</h3>
+                <div class="list">
+                  <div class="item">
+                    <div class="item-title">Paracetamol • 500 mg • Primary</div>
+                    <div class="item-sub">Analgesic / antipyretic</div>
+                  </div>
+                </div>
+              </div>
+              <div class="panel">
+                <h3>Contraindication signals</h3>
+                <div class="list">
+                  <div class="item">
+                    <div class="item-title">Severe hepatic impairment • High</div>
+                    <div class="item-sub">Paracetamol\nUse caution or avoid high cumulative doses in liver disease.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="screen">
+          <div class="screen-meta">
+            <div>
+              <h2>9. Assess</h2>
+              <p>Current decision workspace using local rules and synced data.</p>
+            </div>
+            <span class="chip">Decision</span>
+          </div>
+          <div class="phone">
+            <div class="phone-header">
+              <div class="eyebrow">Treatment check</div>
+              <div class="title">Medication suitability</div>
+              <p class="body-copy">Use local patient context and synced medication reference data to review risks before treatment.</p>
+            </div>
+            <div class="stack">
+              <div class="panel">
+                <h3>Offline check</h3>
+                <div class="field">
+                  <label class="label">Patient</label>
+                  <div class="select">Martha Ndlovu • 34y</div>
+                </div>
+                <div class="field">
+                  <label class="label">Medication</label>
+                  <div class="select">Panado Capsules • 500 mg</div>
+                </div>
+              </div>
+              <div class="panel decision red">
+                <h3>Potentially unsafe. Do not give until reviewed.</h3>
+                <p>Local rules found a blocking concern for this patient and treatment.</p>
+                <div class="tag-row">
+                  <span class="chip">Martha Ndlovu</span>
+                  <span class="chip">Panado Capsules</span>
+                  <span class="chip">500 mg</span>
+                </div>
+              </div>
+              <div class="panel">
+                <h3>Why this result was returned</h3>
+                <div class="tag-row">
+                  <span class="chip">Paracetamol</span>
+                </div>
+                <div class="list">
+                  <div class="item">
+                    <div class="item-title">Contraindication: Paracetamol allergy</div>
+                    <div class="item-sub">Patient allergy profile overlaps with a known risk for this treatment.</div>
+                  </div>
+                </div>
+              </div>
+              <div class="panel">
+                <h3>Next step</h3>
+                <div class="button-row">
+                  <div class="button primary">Record local decision</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="screen">
+          <div class="screen-meta">
+            <div>
+              <h2>10. Encounter / Visit Capture</h2>
+              <p>Current structured visit capture after a medication decision.</p>
+            </div>
+            <span class="chip">Encounter</span>
+          </div>
+          <div class="phone">
+            <div class="phone-header">
+              <div class="eyebrow">Encounter</div>
+              <div class="title">Save the treatment decision</div>
+              <p class="body-copy">Confirm what happened in this review. The note, warning outcome, and clinician action are written to local SQLite first and sync later.</p>
+            </div>
+            <div class="stack">
+              <div class="panel">
+                <h3>Visit context</h3>
+                <div class="tag-row">
+                  <span class="chip">Martha Ndlovu</span>
+                  <span class="chip">Panado Capsules</span>
+                  <span class="chip">500 mg</span>
+                  <span class="chip">Capsule</span>
+                </div>
+                <div class="three-col">
+                  <div class="metric"><div class="k">Allergies</div><div class="v">1</div></div>
+                  <div class="metric"><div class="k">Conditions</div><div class="v">2</div></div>
+                  <div class="metric"><div class="k">Current meds</div><div class="v">2</div></div>
+                </div>
+                <div class="list">
+                  <div class="item">
+                    <div class="item-title">Allergies on file</div>
+                    <div class="item-sub">Paracetamol</div>
+                  </div>
+                  <div class="item">
+                    <div class="item-title">Current medications on file</div>
+                    <div class="item-sub">Azithromycin, Ferrous sulfate</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="panel decision red">
+                <h3>Safety result with reasoning</h3>
+                <p>Potentially unsafe. Do not give until reviewed.</p>
+                <div class="list">
+                  <div class="item">
+                    <div class="item-title">Contraindication: Paracetamol allergy</div>
+                    <div class="item-sub">Patient allergy profile overlaps with a known risk for this treatment.</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="panel">
+                <h3>Patient context</h3>
+                <div class="field">
+                  <label class="label">Presenting problem or visit context</label>
+                  <div class="textarea">Fever and headache for two days. No vomiting. Previous rash after Panado reported by patient.</div>
+                </div>
+              </div>
+
+              <div class="panel">
+                <h3>Clinician action</h3>
+                <div class="list">
+                  <div class="item">
+                    <div class="item-title">Accept warning</div>
+                    <div class="item-sub">The warning was clinically relevant and guided the final action.</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="panel">
+                <h3>Encounter note</h3>
+                <div class="field">
+                  <label class="label">Encounter note</label>
+                  <div class="textarea">Paracetamol withheld due to prior severe allergy history. Alternative analgesic discussed. Patient advised to return if fever persists.</div>
+                </div>
+              </div>
+
+              <div class="panel">
+                <h3>Voice note transcript</h3>
+                <div class="field">
+                  <label class="label">Voice note transcript</label>
+                  <div class="textarea">Patient states Panado caused swelling and rash last year. Current fever appears mild. No danger signs at presentation.</div>
+                </div>
+              </div>
+
+              <div class="panel">
+                <h3>Optional vitals</h3>
+                <div class="two-col">
+                  <div class="field"><label class="label">Temperature</label><div class="input">38.2 C</div></div>
+                  <div class="field"><label class="label">Pulse</label><div class="input">94 bpm</div></div>
+                  <div class="field"><label class="label">Blood pressure</label><div class="input">118/76</div></div>
+                  <div class="field"><label class="label">Respiratory rate</label><div class="input">18 /min</div></div>
+                  <div class="field"><label class="label">Oxygen saturation</label><div class="input">97%</div></div>
+                  <div class="field"><label class="label">Weight</label><div class="input">63 kg</div></div>
+                </div>
+                <div class="footer-note">This decision is saved on-device immediately. PowerSync uploads it when the device reconnects.</div>
+                <div class="button-row">
+                  <div class="button primary">Save encounter locally</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>

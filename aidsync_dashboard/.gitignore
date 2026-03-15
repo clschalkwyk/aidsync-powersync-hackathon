@@ -39,6 +39,9 @@ lerna-debug.log*
 
 # Testing
 coverage
+playwright-report
+test-results
+playwright/.auth
 
 # TanStack Router
 routeTree.gen.ts.cache

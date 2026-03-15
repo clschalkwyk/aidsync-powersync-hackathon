@@ -118,3 +118,159 @@ export function getUserFriendlyErrorMessage(error: unknown, fallback: string): s
       return maybeError.message || fallback
   }
 }
+
+export type EncounterNarrativeSections = {
+  patientContext: string
+  medicationUnderConsideration: string
+  safetyResult: string
+  safetyReasoning: string[]
+  clinicianAction: string
+  clinicianNote: string
+  voiceNoteTranscript: string
+  vitals: Array<{ label: string; value: string }>
+}
+
+const ENCOUNTER_SECTION_TITLES = [
+  'Patient context',
+  'Medication under consideration',
+  'Safety result',
+  'Safety reasoning',
+  'Clinician action',
+  'Clinician note',
+  'Voice note transcript',
+  'Vitals',
+] as const
+
+export function parseEncounterNarrative(text: string | null | undefined): EncounterNarrativeSections {
+  const empty: EncounterNarrativeSections = {
+    patientContext: '',
+    medicationUnderConsideration: '',
+    safetyResult: '',
+    safetyReasoning: [],
+    clinicianAction: '',
+    clinicianNote: '',
+    voiceNoteTranscript: '',
+    vitals: [],
+  }
+
+  if (!text?.trim()) return empty
+
+  try {
+    const decoded = JSON.parse(text)
+    if (decoded && typeof decoded === 'object' && !Array.isArray(decoded)) {
+      const vitals = Object.entries((decoded as Record<string, unknown>).vitals ?? {})
+        .map(([label, value]) => ({
+          label: String(label).trim(),
+          value: String(value ?? '').trim(),
+        }))
+        .filter((item) => item.label && item.value)
+
+      return {
+        ...empty,
+        patientContext: String((decoded as Record<string, unknown>).presentingComplaint ?? '').trim(),
+        clinicianNote: String((decoded as Record<string, unknown>).clinicianNote ?? '').trim(),
+        voiceNoteTranscript: String((decoded as Record<string, unknown>).voiceNoteTranscript ?? '').trim(),
+        vitals,
+      }
+    }
+  } catch {
+    // Ignore JSON parse failure and fall through to narrative parsing.
+  }
+
+  const titlePattern = ENCOUNTER_SECTION_TITLES.map((title) => title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
+  const regex = new RegExp(`(?:^|\\n\\n)(${titlePattern}):\\n`, 'g')
+  const matches = [...text.matchAll(regex)]
+
+  if (matches.length === 0) {
+    return {
+      ...empty,
+      clinicianNote: text.trim(),
+    }
+  }
+
+  const sections = new Map<string, string>()
+  for (let index = 0; index < matches.length; index += 1) {
+    const current = matches[index]
+    const next = matches[index + 1]
+    const heading = current[1]
+    const contentStart = current.index! + current[0].length
+    const contentEnd = next?.index ?? text.length
+    sections.set(heading, text.slice(contentStart, contentEnd).trim())
+  }
+
+  const vitals = (sections.get('Vitals') || '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [label, ...rest] = line.split(':')
+      return {
+        label: label.trim(),
+        value: rest.join(':').trim(),
+      }
+    })
+    .filter((item) => item.label && item.value)
+
+  const safetyReasoning = (sections.get('Safety reasoning') || '')
+    .split('\n')
+    .map((line) => line.replace(/^-+\s*/, '').trim())
+    .filter(Boolean)
+
+  return {
+    patientContext: sections.get('Patient context') || '',
+    medicationUnderConsideration: sections.get('Medication under consideration') || '',
+    safetyResult: sections.get('Safety result') || '',
+    safetyReasoning,
+    clinicianAction: sections.get('Clinician action') || '',
+    clinicianNote: sections.get('Clinician note') || '',
+    voiceNoteTranscript: sections.get('Voice note transcript') || '',
+    vitals,
+  }
+}
+
+export function formatClinicianAction(action: string | null | undefined): string {
+  switch (action) {
+    case 'accept':
+      return 'Accept recommendation'
+    case 'dismiss':
+      return 'Override recommendation'
+    case 'note':
+      return 'Add note only'
+    default:
+      return action?.replace(/_/g, ' ') || '—'
+  }
+}
+
+export function getEncounterAttentionState(
+  interactionChecks: Array<{ severity?: string | null; clinician_action?: string | null; reviewed_at?: string | null }>
+) {
+  const unresolvedChecks = interactionChecks.filter((check) => !check.reviewed_at)
+  const highSeverityCount = unresolvedChecks.filter((check) => check.severity === 'red').length
+  const warningCount = unresolvedChecks.filter((check) => check.severity === 'red' || check.severity === 'yellow').length
+  const noteOnlyCount = unresolvedChecks.filter((check) => check.clinician_action === 'note').length
+  const flaggedCount = unresolvedChecks.filter(
+    (check) => check.severity === 'red' || check.severity === 'yellow' || check.clinician_action === 'note'
+  ).length
+
+  return {
+    highSeverityCount,
+    warningCount,
+    noteOnlyCount,
+    flaggedCount,
+    needsAttention: flaggedCount > 0,
+  }
+}
+
+export function getInteractionCheckFlagReasons(check: {
+  severity?: string | null
+  clinician_action?: string | null
+  reviewed_at?: string | null
+}) {
+  if (check.reviewed_at) return []
+
+  const reasons: string[] = []
+  if (check.severity === 'red') reasons.push('critical severity')
+  else if (check.severity === 'yellow') reasons.push('caution severity')
+  if (check.clinician_action === 'note') reasons.push('note-only action')
+  return reasons
+}

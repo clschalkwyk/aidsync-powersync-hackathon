@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute, Link, Outlet, useRouterState } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Card, CardContent } from '@/components/ui/Card'
@@ -7,15 +7,14 @@ import { Button } from '@/components/ui/Button'
 import { CardSkeleton } from '@/components/ui/Skeleton'
 import { 
   Search, 
-  ChevronRight,
   Clock,
   User,
-  Filter,
   AlertTriangle,
-  ClipboardCheck
+  ClipboardCheck,
+  SquarePen,
 } from 'lucide-react'
 import { fetchEncounters } from '@/data/queries'
-import { formatDate } from '@/lib/utils'
+import { formatDate, getEncounterAttentionState, getInteractionCheckFlagReasons, parseEncounterNarrative } from '@/lib/utils'
 import type { EncounterWithPatient } from '@/types/database'
 
 export const Route = createFileRoute('/_authenticated/encounters')({
@@ -23,6 +22,11 @@ export const Route = createFileRoute('/_authenticated/encounters')({
 })
 
 function EncountersPage() {
+  const pathname = useRouterState({ select: (state) => state.location.pathname })
+  if (pathname !== '/encounters') {
+    return <Outlet />
+  }
+
   const [searchQuery, setSearchQuery] = useState('')
   const { data: encounters, isLoading } = useQuery({
     queryKey: ['encounters'],
@@ -55,8 +59,8 @@ function EncountersPage() {
         </div>
       </div>
 
-      {/* Search & Filter Bar */}
-      <div className="flex flex-col sm:flex-row gap-3 animate-in-slide-up" style={{ animationDelay: '0.1s' }}>
+      {/* Search */}
+      <div className="flex flex-col sm:flex-row gap-3">
         <Card className="flex-1 border-clinical-200 shadow-md shadow-clinical-900/5">
           <CardContent className="p-2 px-3">
             <div className="relative">
@@ -70,14 +74,10 @@ function EncountersPage() {
             </div>
           </CardContent>
         </Card>
-        <Button variant="outline" className="h-14 sm:h-auto px-4 rounded-2xl border-clinical-200 bg-white">
-          <Filter className="h-4 w-4 mr-2" />
-          <span className="font-bold text-xs uppercase tracking-widest text-clinical-600">Filters</span>
-        </Button>
       </div>
 
       {/* Results */}
-      <div className="grid grid-cols-1 gap-4 sm:gap-6 animate-in-slide-up" style={{ animationDelay: '0.15s' }}>
+      <div className="grid grid-cols-1 gap-4 sm:gap-6">
         {isLoading ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
             {[1, 2, 3, 4].map((i) => (
@@ -85,19 +85,19 @@ function EncountersPage() {
             ))}
           </div>
         ) : filteredEncounters?.length === 0 ? (
-          <div className="py-24 text-center bg-clinical-50/50 rounded-3xl border-2 border-dashed border-clinical-200">
-            <ClipboardCheck className="h-16 w-16 mx-auto text-clinical-200 mb-6 opacity-50" />
-            <h3 className="text-xl font-black text-clinical-900 tracking-tight">No Encounters Found</h3>
-            <p className="text-clinical-500 mt-2 max-w-sm mx-auto font-medium">
-              Encounters will appear here once they are synchronized from clinician devices in the field.
+          <div className="py-24 text-center bg-clinical-50/30 rounded-[2.5rem] border-2 border-dashed border-clinical-100">
+            <div className="h-20 w-20 rounded-[2.5rem] bg-white flex items-center justify-center mx-auto mb-6 shadow-sm border border-clinical-100 animate-clinical-pulse">
+              <ClipboardCheck className="h-10 w-10 text-clinical-200" />
+            </div>
+            <h3 className="text-xl font-black text-clinical-900 tracking-tight uppercase">Audit Queue Empty</h3>
+            <p className="text-clinical-500 mt-2 max-w-sm mx-auto font-bold text-xs uppercase tracking-[0.15em] leading-relaxed px-6">
+              No field sessions have been synced to the dashboard. Clinical sessions recorded on mobile devices will appear here once synchronized via PowerSync.
             </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-            {filteredEncounters?.map((encounter, idx) => (
-              <div key={encounter.id} className="animate-in-slide-up" style={{ animationDelay: `${0.15 + (idx * 0.05)}s` }}>
-                <EncounterCard encounter={encounter} />
-              </div>
+            {filteredEncounters?.map((encounter) => (
+              <EncounterCard key={encounter.id} encounter={encounter} />
             ))}
           </div>
         )}
@@ -108,21 +108,36 @@ function EncountersPage() {
 
 function EncounterCard({ encounter }: { encounter: any }) {
   const interactionChecks = encounter.interaction_checks || []
-  const manualReviewRequired = interactionChecks.some((c: any) => c.result_status === 'manual_review_required')
-  const highSeverityAlert = interactionChecks.some((c: any) => c.severity === 'red')
-  const totalAlerts = interactionChecks.filter((c: any) => c.severity === 'red' || c.severity === 'yellow').length
+  const attentionState = getEncounterAttentionState(interactionChecks)
+  const narrative = parseEncounterNarrative(encounter.notes_text)
+  const highSeverityAlert = attentionState.highSeverityCount > 0
+  const totalAlerts = attentionState.warningCount
+  const flagReasons = [
+    ...new Set(
+      interactionChecks.flatMap((check: any) => getInteractionCheckFlagReasons(check))
+    ),
+  ]
+  const primaryFlagReason =
+    flagReasons.includes('critical severity')
+      ? 'critical severity'
+      : flagReasons.includes('caution severity')
+        ? 'caution severity'
+        : flagReasons.includes('note-only action')
+          ? 'note-only action'
+          : ''
+  const narrativePreview =
+    narrative.patientContext ||
+    narrative.safetyResult ||
+    narrative.clinicianNote ||
+    encounter.ai_summary ||
+    ''
   
   return (
-    <Link
-      to="/encounters/$encounterId"
-      params={{ encounterId: encounter.id }}
-      className="group block h-full transition-all duration-300 active:scale-[0.99]"
-    >
-      <Card className={`h-full border-2 transition-all duration-300 cursor-pointer overflow-hidden relative shadow-sm hover:shadow-xl ${manualReviewRequired ? 'border-safety-yellow/30 bg-safety-yellow/[0.01] hover:border-safety-yellow/60' : 'border-clinical-100 hover:border-clinical-400'}`}>
+      <Card className={`h-full border-2 transition-all duration-300 overflow-hidden relative shadow-sm hover:shadow-xl ${attentionState.needsAttention ? 'border-safety-yellow/30 bg-safety-yellow/[0.01] hover:border-safety-yellow/60' : 'border-clinical-100 hover:border-clinical-400'}`}>
         <CardContent className="p-0">
           <div className="flex flex-col h-full">
             {/* Status & Date Header */}
-            <div className={`px-5 py-3 border-b flex items-center justify-between ${manualReviewRequired ? 'border-safety-yellow/20 bg-safety-yellow/[0.04]' : 'border-clinical-50 bg-clinical-50/30'}`}>
+            <div className={`px-5 py-3 border-b flex items-center justify-between ${attentionState.needsAttention ? 'border-safety-yellow/20 bg-safety-yellow/[0.04]' : 'border-clinical-50 bg-clinical-50/30'}`}>
               <div className="flex items-center gap-2.5">
                 <div className={`h-2 w-2 rounded-full ${encounter.status === 'completed' || encounter.status === 'synced' ? 'bg-safety-green shadow-[0_0_8px_rgba(5,150,105,0.4)]' : 'bg-safety-yellow animate-pulse shadow-[0_0_8px_rgba(217,119,6,0.4)]'}`} />
                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-clinical-500">
@@ -138,7 +153,7 @@ function EncounterCard({ encounter }: { encounter: any }) {
             <div className="p-6 flex-1">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-start gap-4 min-w-0">
-                  <div className={`flex h-12 w-12 items-center justify-center rounded-xl font-black text-lg shrink-0 transition-all duration-500 shadow-inner group-hover:rotate-3 ${manualReviewRequired ? 'bg-safety-yellow/20 text-safety-yellow' : 'bg-clinical-100 text-clinical-600 group-hover:bg-clinical-200'}`}>
+                  <div className={`flex h-12 w-12 items-center justify-center rounded-xl font-black text-lg shrink-0 transition-all duration-500 shadow-inner group-hover:rotate-3 ${attentionState.needsAttention ? 'bg-safety-yellow/20 text-safety-yellow' : 'bg-clinical-100 text-clinical-600 group-hover:bg-clinical-200'}`}>
                     {encounter.patient?.full_name?.charAt(0) || 'P'}
                   </div>
                   <div className="min-w-0">
@@ -150,17 +165,28 @@ function EncounterCard({ encounter }: { encounter: any }) {
                     </p>
                   </div>
                 </div>
-                <div className="h-8 w-8 rounded-lg bg-clinical-50 flex items-center justify-center shrink-0 border border-clinical-100 group-hover:border-clinical-300 transition-all">
-                  <ChevronRight className="h-4 w-4 text-clinical-400 group-hover:text-clinical-900" />
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button variant="outline" size="sm" asChild className="h-9 px-3 font-black text-[10px] uppercase tracking-widest border-clinical-200 bg-white">
+                    <Link to="/encounters/$encounterId" params={{ encounterId: encounter.id }}>
+                      View
+                    </Link>
+                  </Button>
+                  <Button variant="ghost" size="sm" asChild className="h-9 w-9 p-0 rounded-xl text-clinical-500 hover:text-clinical-900 border border-clinical-100 bg-clinical-50">
+                    <Link to="/encounters/$encounterId/edit" params={{ encounterId: encounter.id }}>
+                      <SquarePen className="h-4 w-4" />
+                    </Link>
+                  </Button>
                 </div>
               </div>
 
               {/* Safety Summary Cues */}
               <div className="mt-6 flex flex-wrap gap-2">
-                {manualReviewRequired ? (
+                {attentionState.needsAttention ? (
                   <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-safety-yellow text-white shadow-sm shadow-safety-yellow/20">
                     <AlertTriangle className="h-3 w-3" />
-                    <span className="text-[9px] font-black uppercase tracking-widest">Manual Review Required</span>
+                    <span className="text-[9px] font-black uppercase tracking-widest">
+                      {primaryFlagReason ? `Flagged: ${primaryFlagReason}` : 'Flagged For Review'}
+                    </span>
                   </div>
                 ) : (
                   <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-clinical-900 text-white shadow-sm shadow-clinical-900/20">
@@ -169,6 +195,13 @@ function EncounterCard({ encounter }: { encounter: any }) {
                   </div>
                 )}
                 
+                {attentionState.noteOnlyCount > 0 && (
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-clinical-200 bg-white text-clinical-700 shadow-sm">
+                    <ClipboardCheck className="h-3 w-3 text-brand-500" />
+                    <span className="text-[9px] font-black uppercase tracking-widest">{attentionState.noteOnlyCount} note-only {attentionState.noteOnlyCount === 1 ? 'decision' : 'decisions'}</span>
+                  </div>
+                )}
+
                 {totalAlerts > 0 && (
                   <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border-2 font-black text-[9px] uppercase tracking-widest ${highSeverityAlert ? 'bg-safety-red/5 border-safety-red text-safety-red' : 'bg-safety-yellow/5 border-safety-yellow text-safety-yellow'}`}>
                     {totalAlerts} Safety {totalAlerts === 1 ? 'Alert' : 'Alerts'}
@@ -179,13 +212,13 @@ function EncounterCard({ encounter }: { encounter: any }) {
               {/* Field Notes Highlight */}
               <div className="mt-5 pt-5 border-t border-clinical-50/80">
                 <div className="flex items-center gap-2 mb-2.5">
-                  <span className="text-[8px] font-black uppercase tracking-[0.2em] text-clinical-300">Clinician Observations</span>
+                  <span className="text-[8px] font-black uppercase tracking-[0.2em] text-clinical-300">Visit Summary</span>
                 </div>
-                <div className={`p-4 rounded-xl border text-[11px] font-medium leading-relaxed italic ${manualReviewRequired ? 'bg-white/60 border-safety-yellow/10 text-clinical-800' : 'bg-clinical-50/30 border-clinical-100/50 text-clinical-500'}`}>
-                  {encounter.notes_text ? (
-                    <span className="line-clamp-2">"{encounter.notes_text}"</span>
+                <div className={`p-4 rounded-xl border text-[11px] font-medium leading-relaxed italic ${attentionState.needsAttention ? 'bg-white/60 border-safety-yellow/10 text-clinical-800' : 'bg-clinical-50/30 border-clinical-100/50 text-clinical-500'}`}>
+                  {narrativePreview ? (
+                    <span className="line-clamp-3">"{narrativePreview}"</span>
                   ) : (
-                    <span className="uppercase tracking-widest opacity-40 text-[9px] font-black">No field observations recorded</span>
+                    <span className="uppercase tracking-widest opacity-40 text-[9px] font-black">No structured visit summary recorded</span>
                   )}
                 </div>
               </div>
@@ -201,16 +234,10 @@ function EncounterCard({ encounter }: { encounter: any }) {
                     {encounter.id.slice(0, 8)}
                   </span>
                 </div>
-                
-                <div className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-clinical-300 group-hover:text-clinical-900 transition-colors">
-                  Open Audit
-                  <ChevronRight className="h-3 w-3" />
-                </div>
               </div>
             </div>
           </div>
         </CardContent>
       </Card>
-    </Link>
   )
 }

@@ -16,41 +16,41 @@ export function Modal({ isOpen, onClose, title, description, children, size = 'm
 
   return (
     <div 
-      className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm"
+      className="fixed inset-0 z-[100] flex items-start justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm overflow-y-auto"
       onClick={onClose}
     >
       <div 
         className={cn(
-          "relative w-full bg-white shadow-xl overflow-hidden",
-          "h-full sm:h-auto",
-          "sm:rounded-xl",
+          "relative w-full bg-white shadow-2xl overflow-hidden animate-in-slide-up",
+          "h-full sm:h-auto my-0 sm:my-24",
+          "sm:rounded-3xl",
           {
             'sm:max-w-md': size === 'sm',
             'sm:max-w-lg': size === 'md',
-            'sm:max-w-2xl': size === 'lg',
+            'sm:max-w-3xl': size === 'lg',
           }
         )}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-start justify-between p-4 border-b border-clinical-100 shrink-0">
-          <div className="pr-4">
-            <h3 className="text-lg font-semibold text-clinical-900">{title}</h3>
+        <div className="flex items-start justify-between p-6 border-b border-clinical-100 shrink-0 bg-white sticky top-0 z-10">
+          <div className="pr-8">
+            <h3 className="text-xl font-black text-clinical-900 tracking-tight uppercase">{title}</h3>
             {description && (
-              <p className="text-sm text-clinical-500 mt-0.5">{description}</p>
+              <p className="text-xs font-bold text-clinical-400 mt-1 uppercase tracking-widest leading-relaxed">{description}</p>
             )}
           </div>
           <button
             onClick={onClose}
-            className="text-clinical-400 hover:text-clinical-600 transition-colors p-1 -mr-1"
+            className="text-clinical-300 hover:text-clinical-900 hover:bg-clinical-50 transition-all p-2 rounded-xl -mr-2 active:scale-90"
             aria-label="Close"
           >
-            <X className="h-5 w-5" />
+            <X className="h-6 w-6" />
           </button>
         </div>
         
         {/* Content */}
-        <div className="p-4 overflow-y-auto" style={{ maxHeight: 'calc(100dvh - 80px)' }}>
+        <div className="p-6 sm:p-8">
           {children}
         </div>
       </div>

@@ -1,11 +1,10 @@
-import { createFileRoute, Link, Outlet, useNavigate, useRouterState } from '@tanstack/react-router'
+import { createFileRoute, Link, Outlet, useRouterState } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
-import { Modal } from '@/components/ui/Modal'
 import { Select } from '@/components/ui/Select'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { 
@@ -33,10 +32,7 @@ function InteractionsPage() {
   const canEdit = canManageReferenceData(profile?.role)
   const [searchQuery, setSearchQuery] = useState('')
   const [severityFilter, setSeverityFilter] = useState<string>('all')
-  const navigate = useNavigate()
   const pathname = useRouterState({ select: (state) => state.location.pathname })
-  const isAddModalOpen = pathname === '/interactions/new'
-  const isEditModalOpen = /^\/interactions\/[^/]+\/edit$/.test(pathname)
   
   const { data: rules, isLoading } = useQuery({
     queryKey: ['interaction-rules'],
@@ -67,6 +63,10 @@ function InteractionsPage() {
     if (confirm('Are you sure you want to delete this interaction rule?')) {
       deleteMutation.mutate(id)
     }
+  }
+
+  if (pathname !== '/interactions') {
+    return <Outlet />
   }
 
   return (
@@ -165,19 +165,6 @@ function InteractionsPage() {
         )}
       </div>
 
-      <Modal
-        isOpen={isAddModalOpen || isEditModalOpen}
-        onClose={() => navigate({ to: '/interactions' })}
-        title={isEditModalOpen ? 'Edit Interaction Rule' : 'Add Interaction Rule'}
-        description={
-          isEditModalOpen
-            ? 'Update the clinical interaction rule used during offline medication checks.'
-            : 'Define a clinical interaction rule that will sync to field devices.'
-        }
-        size="lg"
-      >
-        <Outlet />
-      </Modal>
     </div>
   )
 }
@@ -258,9 +245,10 @@ function InteractionRuleRow({ rule, canEdit, onDelete }: { rule: MedicationInter
 
               {/* Actions Column */}
               <div className="flex items-center lg:items-start justify-end gap-2 lg:pt-1">
-                <Button variant="ghost" size="sm" asChild disabled={!canEdit} className="h-10 w-10 p-0 rounded-xl text-clinical-400 hover:text-clinical-900 hover:bg-clinical-50 border border-transparent hover:border-clinical-100 active:scale-95 transition-all">
+                <Button variant="outline" size="sm" asChild disabled={!canEdit} className="h-10 px-4 rounded-xl text-clinical-600 hover:text-clinical-900 border-clinical-200 bg-white hover:border-clinical-400 active:scale-95 transition-all shadow-sm group/edit">
                   <Link to="/interactions/$ruleId/edit" params={{ ruleId: rule.id }}>
-                    <Edit className="h-4 w-4" />
+                    <Edit className="h-3.5 w-3.5 mr-2 text-clinical-400 group-hover/edit:text-clinical-900 transition-colors" />
+                    <span className="text-[10px] font-black uppercase tracking-widest">Edit</span>
                   </Link>
                 </Button>
                 <Button variant="ghost" size="sm" onClick={onDelete} disabled={!canEdit} className="h-10 w-10 p-0 rounded-xl text-clinical-300 hover:text-safety-red hover:bg-safety-red/5 border border-transparent hover:border-safety-red/10 active:scale-95 transition-all">

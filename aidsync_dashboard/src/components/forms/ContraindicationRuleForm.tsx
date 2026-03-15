@@ -99,8 +99,7 @@ export function ContraindicationRuleForm({ ingredients, rule, initialIngredientI
   }
 
   return (
-    <div className="max-w-4xl mx-auto py-4">
-      <form onSubmit={handleSubmit} className="space-y-10 animate-in-fade">
+    <form onSubmit={handleSubmit} className="space-y-10 animate-in-fade">
         {mutation.error && (
           <div className="flex items-center gap-3 rounded-2xl bg-safety-red/10 p-5 text-sm text-safety-red font-black uppercase tracking-tight border border-safety-red/20">
             <AlertCircle className="h-5 w-5 shrink-0" />
@@ -283,6 +282,5 @@ export function ContraindicationRuleForm({ ingredients, rule, initialIngredientI
           </div>
         </div>
       </form>
-    </div>
   )
 }

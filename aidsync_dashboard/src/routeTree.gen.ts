@@ -21,6 +21,7 @@ import { Route as AuthenticatedIngredientsRouteImport } from './routes/_authenti
 import { Route as AuthenticatedEncountersRouteImport } from './routes/_authenticated/encounters'
 import { Route as AuthenticatedContraindicationsRouteImport } from './routes/_authenticated/contraindications'
 import { Route as AuthenticatedPatientsPatientIdRouteImport } from './routes/_authenticated/patients.$patientId'
+import { Route as AuthenticatedMedicationsPrepareRouteImport } from './routes/_authenticated/medications.prepare'
 import { Route as AuthenticatedMedicationsNewRouteImport } from './routes/_authenticated/medications.new'
 import { Route as AuthenticatedMedicationsLinkIngredientRouteImport } from './routes/_authenticated/medications.link-ingredient'
 import { Route as AuthenticatedMedicationsMedicationIdRouteImport } from './routes/_authenticated/medications.$medicationId'
@@ -28,9 +29,12 @@ import { Route as AuthenticatedInteractionsNewRouteImport } from './routes/_auth
 import { Route as AuthenticatedIngredientsNewRouteImport } from './routes/_authenticated/ingredients.new'
 import { Route as AuthenticatedEncountersEncounterIdRouteImport } from './routes/_authenticated/encounters.$encounterId'
 import { Route as AuthenticatedContraindicationsNewRouteImport } from './routes/_authenticated/contraindications.new'
+import { Route as AuthenticatedPatientsPatientIdEditRouteImport } from './routes/_authenticated/patients.$patientId.edit'
+import { Route as AuthenticatedMedicationsPrepareSessionSessionIdRouteImport } from './routes/_authenticated/medications.prepare-session.$sessionId'
 import { Route as AuthenticatedMedicationsMedicationIdEditRouteImport } from './routes/_authenticated/medications.$medicationId.edit'
 import { Route as AuthenticatedInteractionsRuleIdEditRouteImport } from './routes/_authenticated/interactions.$ruleId.edit'
 import { Route as AuthenticatedIngredientsIngredientIdEditRouteImport } from './routes/_authenticated/ingredients.$ingredientId.edit'
+import { Route as AuthenticatedEncountersEncounterIdEditRouteImport } from './routes/_authenticated/encounters.$encounterId.edit'
 import { Route as AuthenticatedContraindicationsRuleIdEditRouteImport } from './routes/_authenticated/contraindications.$ruleId.edit'
 
 const SignupRoute = SignupRouteImport.update({
@@ -97,6 +101,12 @@ const AuthenticatedPatientsPatientIdRoute =
     path: '/$patientId',
     getParentRoute: () => AuthenticatedPatientsRoute,
   } as any)
+const AuthenticatedMedicationsPrepareRoute =
+  AuthenticatedMedicationsPrepareRouteImport.update({
+    id: '/prepare',
+    path: '/prepare',
+    getParentRoute: () => AuthenticatedMedicationsRoute,
+  } as any)
 const AuthenticatedMedicationsNewRoute =
   AuthenticatedMedicationsNewRouteImport.update({
     id: '/new',
@@ -139,6 +149,18 @@ const AuthenticatedContraindicationsNewRoute =
     path: '/new',
     getParentRoute: () => AuthenticatedContraindicationsRoute,
   } as any)
+const AuthenticatedPatientsPatientIdEditRoute =
+  AuthenticatedPatientsPatientIdEditRouteImport.update({
+    id: '/edit',
+    path: '/edit',
+    getParentRoute: () => AuthenticatedPatientsPatientIdRoute,
+  } as any)
+const AuthenticatedMedicationsPrepareSessionSessionIdRoute =
+  AuthenticatedMedicationsPrepareSessionSessionIdRouteImport.update({
+    id: '/prepare-session/$sessionId',
+    path: '/prepare-session/$sessionId',
+    getParentRoute: () => AuthenticatedMedicationsRoute,
+  } as any)
 const AuthenticatedMedicationsMedicationIdEditRoute =
   AuthenticatedMedicationsMedicationIdEditRouteImport.update({
     id: '/edit',
@@ -156,6 +178,12 @@ const AuthenticatedIngredientsIngredientIdEditRoute =
     id: '/$ingredientId/edit',
     path: '/$ingredientId/edit',
     getParentRoute: () => AuthenticatedIngredientsRoute,
+  } as any)
+const AuthenticatedEncountersEncounterIdEditRoute =
+  AuthenticatedEncountersEncounterIdEditRouteImport.update({
+    id: '/edit',
+    path: '/edit',
+    getParentRoute: () => AuthenticatedEncountersEncounterIdRoute,
   } as any)
 const AuthenticatedContraindicationsRuleIdEditRoute =
   AuthenticatedContraindicationsRuleIdEditRouteImport.update({
@@ -176,17 +204,21 @@ export interface FileRoutesByFullPath {
   '/overview': typeof AuthenticatedOverviewRoute
   '/patients': typeof AuthenticatedPatientsRouteWithChildren
   '/contraindications/new': typeof AuthenticatedContraindicationsNewRoute
-  '/encounters/$encounterId': typeof AuthenticatedEncountersEncounterIdRoute
+  '/encounters/$encounterId': typeof AuthenticatedEncountersEncounterIdRouteWithChildren
   '/ingredients/new': typeof AuthenticatedIngredientsNewRoute
   '/interactions/new': typeof AuthenticatedInteractionsNewRoute
   '/medications/$medicationId': typeof AuthenticatedMedicationsMedicationIdRouteWithChildren
   '/medications/link-ingredient': typeof AuthenticatedMedicationsLinkIngredientRoute
   '/medications/new': typeof AuthenticatedMedicationsNewRoute
-  '/patients/$patientId': typeof AuthenticatedPatientsPatientIdRoute
+  '/medications/prepare': typeof AuthenticatedMedicationsPrepareRoute
+  '/patients/$patientId': typeof AuthenticatedPatientsPatientIdRouteWithChildren
   '/contraindications/$ruleId/edit': typeof AuthenticatedContraindicationsRuleIdEditRoute
+  '/encounters/$encounterId/edit': typeof AuthenticatedEncountersEncounterIdEditRoute
   '/ingredients/$ingredientId/edit': typeof AuthenticatedIngredientsIngredientIdEditRoute
   '/interactions/$ruleId/edit': typeof AuthenticatedInteractionsRuleIdEditRoute
   '/medications/$medicationId/edit': typeof AuthenticatedMedicationsMedicationIdEditRoute
+  '/medications/prepare-session/$sessionId': typeof AuthenticatedMedicationsPrepareSessionSessionIdRoute
+  '/patients/$patientId/edit': typeof AuthenticatedPatientsPatientIdEditRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -200,17 +232,21 @@ export interface FileRoutesByTo {
   '/overview': typeof AuthenticatedOverviewRoute
   '/patients': typeof AuthenticatedPatientsRouteWithChildren
   '/contraindications/new': typeof AuthenticatedContraindicationsNewRoute
-  '/encounters/$encounterId': typeof AuthenticatedEncountersEncounterIdRoute
+  '/encounters/$encounterId': typeof AuthenticatedEncountersEncounterIdRouteWithChildren
   '/ingredients/new': typeof AuthenticatedIngredientsNewRoute
   '/interactions/new': typeof AuthenticatedInteractionsNewRoute
   '/medications/$medicationId': typeof AuthenticatedMedicationsMedicationIdRouteWithChildren
   '/medications/link-ingredient': typeof AuthenticatedMedicationsLinkIngredientRoute
   '/medications/new': typeof AuthenticatedMedicationsNewRoute
-  '/patients/$patientId': typeof AuthenticatedPatientsPatientIdRoute
+  '/medications/prepare': typeof AuthenticatedMedicationsPrepareRoute
+  '/patients/$patientId': typeof AuthenticatedPatientsPatientIdRouteWithChildren
   '/contraindications/$ruleId/edit': typeof AuthenticatedContraindicationsRuleIdEditRoute
+  '/encounters/$encounterId/edit': typeof AuthenticatedEncountersEncounterIdEditRoute
   '/ingredients/$ingredientId/edit': typeof AuthenticatedIngredientsIngredientIdEditRoute
   '/interactions/$ruleId/edit': typeof AuthenticatedInteractionsRuleIdEditRoute
   '/medications/$medicationId/edit': typeof AuthenticatedMedicationsMedicationIdEditRoute
+  '/medications/prepare-session/$sessionId': typeof AuthenticatedMedicationsPrepareSessionSessionIdRoute
+  '/patients/$patientId/edit': typeof AuthenticatedPatientsPatientIdEditRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -226,17 +262,21 @@ export interface FileRoutesById {
   '/_authenticated/overview': typeof AuthenticatedOverviewRoute
   '/_authenticated/patients': typeof AuthenticatedPatientsRouteWithChildren
   '/_authenticated/contraindications/new': typeof AuthenticatedContraindicationsNewRoute
-  '/_authenticated/encounters/$encounterId': typeof AuthenticatedEncountersEncounterIdRoute
+  '/_authenticated/encounters/$encounterId': typeof AuthenticatedEncountersEncounterIdRouteWithChildren
   '/_authenticated/ingredients/new': typeof AuthenticatedIngredientsNewRoute
   '/_authenticated/interactions/new': typeof AuthenticatedInteractionsNewRoute
   '/_authenticated/medications/$medicationId': typeof AuthenticatedMedicationsMedicationIdRouteWithChildren
   '/_authenticated/medications/link-ingredient': typeof AuthenticatedMedicationsLinkIngredientRoute
   '/_authenticated/medications/new': typeof AuthenticatedMedicationsNewRoute
-  '/_authenticated/patients/$patientId': typeof AuthenticatedPatientsPatientIdRoute
+  '/_authenticated/medications/prepare': typeof AuthenticatedMedicationsPrepareRoute
+  '/_authenticated/patients/$patientId': typeof AuthenticatedPatientsPatientIdRouteWithChildren
   '/_authenticated/contraindications/$ruleId/edit': typeof AuthenticatedContraindicationsRuleIdEditRoute
+  '/_authenticated/encounters/$encounterId/edit': typeof AuthenticatedEncountersEncounterIdEditRoute
   '/_authenticated/ingredients/$ingredientId/edit': typeof AuthenticatedIngredientsIngredientIdEditRoute
   '/_authenticated/interactions/$ruleId/edit': typeof AuthenticatedInteractionsRuleIdEditRoute
   '/_authenticated/medications/$medicationId/edit': typeof AuthenticatedMedicationsMedicationIdEditRoute
+  '/_authenticated/medications/prepare-session/$sessionId': typeof AuthenticatedMedicationsPrepareSessionSessionIdRoute
+  '/_authenticated/patients/$patientId/edit': typeof AuthenticatedPatientsPatientIdEditRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -258,11 +298,15 @@ export interface FileRouteTypes {
     | '/medications/$medicationId'
     | '/medications/link-ingredient'
     | '/medications/new'
+    | '/medications/prepare'
     | '/patients/$patientId'
     | '/contraindications/$ruleId/edit'
+    | '/encounters/$encounterId/edit'
     | '/ingredients/$ingredientId/edit'
     | '/interactions/$ruleId/edit'
     | '/medications/$medicationId/edit'
+    | '/medications/prepare-session/$sessionId'
+    | '/patients/$patientId/edit'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -282,11 +326,15 @@ export interface FileRouteTypes {
     | '/medications/$medicationId'
     | '/medications/link-ingredient'
     | '/medications/new'
+    | '/medications/prepare'
     | '/patients/$patientId'
     | '/contraindications/$ruleId/edit'
+    | '/encounters/$encounterId/edit'
     | '/ingredients/$ingredientId/edit'
     | '/interactions/$ruleId/edit'
     | '/medications/$medicationId/edit'
+    | '/medications/prepare-session/$sessionId'
+    | '/patients/$patientId/edit'
   id:
     | '__root__'
     | '/'
@@ -307,11 +355,15 @@ export interface FileRouteTypes {
     | '/_authenticated/medications/$medicationId'
     | '/_authenticated/medications/link-ingredient'
     | '/_authenticated/medications/new'
+    | '/_authenticated/medications/prepare'
     | '/_authenticated/patients/$patientId'
     | '/_authenticated/contraindications/$ruleId/edit'
+    | '/_authenticated/encounters/$encounterId/edit'
     | '/_authenticated/ingredients/$ingredientId/edit'
     | '/_authenticated/interactions/$ruleId/edit'
     | '/_authenticated/medications/$medicationId/edit'
+    | '/_authenticated/medications/prepare-session/$sessionId'
+    | '/_authenticated/patients/$patientId/edit'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -407,6 +459,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPatientsPatientIdRouteImport
       parentRoute: typeof AuthenticatedPatientsRoute
     }
+    '/_authenticated/medications/prepare': {
+      id: '/_authenticated/medications/prepare'
+      path: '/prepare'
+      fullPath: '/medications/prepare'
+      preLoaderRoute: typeof AuthenticatedMedicationsPrepareRouteImport
+      parentRoute: typeof AuthenticatedMedicationsRoute
+    }
     '/_authenticated/medications/new': {
       id: '/_authenticated/medications/new'
       path: '/new'
@@ -456,6 +515,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedContraindicationsNewRouteImport
       parentRoute: typeof AuthenticatedContraindicationsRoute
     }
+    '/_authenticated/patients/$patientId/edit': {
+      id: '/_authenticated/patients/$patientId/edit'
+      path: '/edit'
+      fullPath: '/patients/$patientId/edit'
+      preLoaderRoute: typeof AuthenticatedPatientsPatientIdEditRouteImport
+      parentRoute: typeof AuthenticatedPatientsPatientIdRoute
+    }
+    '/_authenticated/medications/prepare-session/$sessionId': {
+      id: '/_authenticated/medications/prepare-session/$sessionId'
+      path: '/prepare-session/$sessionId'
+      fullPath: '/medications/prepare-session/$sessionId'
+      preLoaderRoute: typeof AuthenticatedMedicationsPrepareSessionSessionIdRouteImport
+      parentRoute: typeof AuthenticatedMedicationsRoute
+    }
     '/_authenticated/medications/$medicationId/edit': {
       id: '/_authenticated/medications/$medicationId/edit'
       path: '/edit'
@@ -476,6 +549,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/ingredients/$ingredientId/edit'
       preLoaderRoute: typeof AuthenticatedIngredientsIngredientIdEditRouteImport
       parentRoute: typeof AuthenticatedIngredientsRoute
+    }
+    '/_authenticated/encounters/$encounterId/edit': {
+      id: '/_authenticated/encounters/$encounterId/edit'
+      path: '/edit'
+      fullPath: '/encounters/$encounterId/edit'
+      preLoaderRoute: typeof AuthenticatedEncountersEncounterIdEditRouteImport
+      parentRoute: typeof AuthenticatedEncountersEncounterIdRoute
     }
     '/_authenticated/contraindications/$ruleId/edit': {
       id: '/_authenticated/contraindications/$ruleId/edit'
@@ -505,14 +585,29 @@ const AuthenticatedContraindicationsRouteWithChildren =
     AuthenticatedContraindicationsRouteChildren,
   )
 
+interface AuthenticatedEncountersEncounterIdRouteChildren {
+  AuthenticatedEncountersEncounterIdEditRoute: typeof AuthenticatedEncountersEncounterIdEditRoute
+}
+
+const AuthenticatedEncountersEncounterIdRouteChildren: AuthenticatedEncountersEncounterIdRouteChildren =
+  {
+    AuthenticatedEncountersEncounterIdEditRoute:
+      AuthenticatedEncountersEncounterIdEditRoute,
+  }
+
+const AuthenticatedEncountersEncounterIdRouteWithChildren =
+  AuthenticatedEncountersEncounterIdRoute._addFileChildren(
+    AuthenticatedEncountersEncounterIdRouteChildren,
+  )
+
 interface AuthenticatedEncountersRouteChildren {
-  AuthenticatedEncountersEncounterIdRoute: typeof AuthenticatedEncountersEncounterIdRoute
+  AuthenticatedEncountersEncounterIdRoute: typeof AuthenticatedEncountersEncounterIdRouteWithChildren
 }
 
 const AuthenticatedEncountersRouteChildren: AuthenticatedEncountersRouteChildren =
   {
     AuthenticatedEncountersEncounterIdRoute:
-      AuthenticatedEncountersEncounterIdRoute,
+      AuthenticatedEncountersEncounterIdRouteWithChildren,
   }
 
 const AuthenticatedEncountersRouteWithChildren =
@@ -573,6 +668,8 @@ interface AuthenticatedMedicationsRouteChildren {
   AuthenticatedMedicationsMedicationIdRoute: typeof AuthenticatedMedicationsMedicationIdRouteWithChildren
   AuthenticatedMedicationsLinkIngredientRoute: typeof AuthenticatedMedicationsLinkIngredientRoute
   AuthenticatedMedicationsNewRoute: typeof AuthenticatedMedicationsNewRoute
+  AuthenticatedMedicationsPrepareRoute: typeof AuthenticatedMedicationsPrepareRoute
+  AuthenticatedMedicationsPrepareSessionSessionIdRoute: typeof AuthenticatedMedicationsPrepareSessionSessionIdRoute
 }
 
 const AuthenticatedMedicationsRouteChildren: AuthenticatedMedicationsRouteChildren =
@@ -582,6 +679,9 @@ const AuthenticatedMedicationsRouteChildren: AuthenticatedMedicationsRouteChildr
     AuthenticatedMedicationsLinkIngredientRoute:
       AuthenticatedMedicationsLinkIngredientRoute,
     AuthenticatedMedicationsNewRoute: AuthenticatedMedicationsNewRoute,
+    AuthenticatedMedicationsPrepareRoute: AuthenticatedMedicationsPrepareRoute,
+    AuthenticatedMedicationsPrepareSessionSessionIdRoute:
+      AuthenticatedMedicationsPrepareSessionSessionIdRoute,
   }
 
 const AuthenticatedMedicationsRouteWithChildren =
@@ -589,12 +689,28 @@ const AuthenticatedMedicationsRouteWithChildren =
     AuthenticatedMedicationsRouteChildren,
   )
 
+interface AuthenticatedPatientsPatientIdRouteChildren {
+  AuthenticatedPatientsPatientIdEditRoute: typeof AuthenticatedPatientsPatientIdEditRoute
+}
+
+const AuthenticatedPatientsPatientIdRouteChildren: AuthenticatedPatientsPatientIdRouteChildren =
+  {
+    AuthenticatedPatientsPatientIdEditRoute:
+      AuthenticatedPatientsPatientIdEditRoute,
+  }
+
+const AuthenticatedPatientsPatientIdRouteWithChildren =
+  AuthenticatedPatientsPatientIdRoute._addFileChildren(
+    AuthenticatedPatientsPatientIdRouteChildren,
+  )
+
 interface AuthenticatedPatientsRouteChildren {
-  AuthenticatedPatientsPatientIdRoute: typeof AuthenticatedPatientsPatientIdRoute
+  AuthenticatedPatientsPatientIdRoute: typeof AuthenticatedPatientsPatientIdRouteWithChildren
 }
 
 const AuthenticatedPatientsRouteChildren: AuthenticatedPatientsRouteChildren = {
-  AuthenticatedPatientsPatientIdRoute: AuthenticatedPatientsPatientIdRoute,
+  AuthenticatedPatientsPatientIdRoute:
+    AuthenticatedPatientsPatientIdRouteWithChildren,
 }
 
 const AuthenticatedPatientsRouteWithChildren =

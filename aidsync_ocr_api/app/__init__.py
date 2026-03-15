@@ -1,0 +1,1 @@
+"""AidSync OCR API package."""

@@ -1,10 +1,11 @@
-import { createFileRoute, redirect, useNavigate, Link } from '@tanstack/react-router'
-import { useState, useEffect } from 'react'
+import { createFileRoute, redirect, Link } from '@tanstack/react-router'
+import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
 import { AlertCircle } from 'lucide-react'
+import { useNavigate } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/login')({
   component: LoginPage,
@@ -22,14 +23,18 @@ function LoginPage() {
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const redirectTarget = useMemo(() => {
+    const params = new URLSearchParams(window.location.search)
+    return params.get('redirect') || '/overview'
+  }, [])
 
-  // Robust redirect: if user state appears, go to overview
   useEffect(() => {
-    if (user) {
-      console.log('User detected in LoginPage, redirecting to overview')
-      navigate({ to: '/overview' })
+    if (!user) {
+      return
     }
-  }, [user, navigate])
+
+    navigate({ to: redirectTarget as '/overview' })
+  }, [navigate, redirectTarget, user])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -45,8 +50,7 @@ function LoginPage() {
       setIsLoading(false)
     } else {
       console.log('Sign in call successful')
-      // Navigation is now primarily handled by the useEffect above
-      // which triggers when the auth state propagates
+      navigate({ to: redirectTarget as '/overview' })
     }
   }
 

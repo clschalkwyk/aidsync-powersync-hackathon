@@ -1,4 +1,4 @@
-import { Link, useLocation } from '@tanstack/react-router'
+import { Link, useLocation, useNavigate } from '@tanstack/react-router'
 import { 
   LayoutDashboard, 
   Pill, 
@@ -9,8 +9,7 @@ import {
   Beaker,
   LogOut,
   X,
-  Menu,
-  Search
+  Menu
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
@@ -32,7 +31,14 @@ interface SidebarProps {
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const location = useLocation()
+  const navigate = useNavigate()
   const { signOut, profile } = useAuth()
+
+  const handleSignOut = async () => {
+    await signOut()
+    onClose()
+    navigate({ to: '/login' })
+  }
 
   return (
     <>
@@ -67,17 +73,6 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               className="lg:hidden text-clinical-400 hover:text-white p-1 rounded-lg hover:bg-clinical-800 transition-colors"
             >
               <X className="h-5 w-5" />
-            </button>
-          </div>
-
-          {/* Quick Search Launcher */}
-          <div className="px-4 py-4">
-            <button className="flex w-full items-center gap-3 rounded-xl bg-white/5 px-4 py-2.5 text-xs font-bold text-clinical-400 border border-white/5 hover:bg-white/10 hover:text-white transition-all group">
-              <Search className="h-4 w-4 shrink-0 opacity-50 group-hover:opacity-100 transition-opacity" />
-              <span className="flex-1 text-left">Quick Search...</span>
-              <kbd className="hidden sm:inline-flex h-5 items-center gap-1 rounded border border-white/10 bg-white/5 px-1.5 font-mono text-[10px] font-medium text-clinical-500 opacity-100">
-                <span className="text-xs">⌘</span>K
-              </kbd>
             </button>
           </div>
 
@@ -130,7 +125,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               </div>
             </div>
             <button
-              onClick={signOut}
+              onClick={handleSignOut}
               className="flex w-full items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-clinical-400 hover:bg-safety-red/10 hover:text-safety-red transition-all duration-200 cursor-pointer"
             >
               <LogOut className="h-4 w-4" />

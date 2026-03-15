@@ -196,6 +196,100 @@ export type Database = {
           updated_at?: string
         }
       }
+      leaflet_preparation_sessions: {
+        Row: {
+          id: string
+          created_by: string
+          status: string
+          source_name: string | null
+          brand_name: string | null
+          generic_name: string | null
+          dosage_form: string | null
+          manufacturer_name: string | null
+          notes: string | null
+          confidence: number | null
+          warnings_json: Json
+          draft_json: Json
+          published_medication_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          created_by: string
+          status?: string
+          source_name?: string | null
+          brand_name?: string | null
+          generic_name?: string | null
+          dosage_form?: string | null
+          manufacturer_name?: string | null
+          notes?: string | null
+          confidence?: number | null
+          warnings_json?: Json
+          draft_json?: Json
+          published_medication_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          created_by?: string
+          status?: string
+          source_name?: string | null
+          brand_name?: string | null
+          generic_name?: string | null
+          dosage_form?: string | null
+          manufacturer_name?: string | null
+          notes?: string | null
+          confidence?: number | null
+          warnings_json?: Json
+          draft_json?: Json
+          published_medication_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      leaflet_preparation_pages: {
+        Row: {
+          id: string
+          session_id: string
+          page_index: number
+          storage_path: string
+          status: string
+          ocr_text: string | null
+          extraction_json: Json
+          warnings_json: Json
+          error_text: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          session_id: string
+          page_index: number
+          storage_path: string
+          status?: string
+          ocr_text?: string | null
+          extraction_json?: Json
+          warnings_json?: Json
+          error_text?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          session_id?: string
+          page_index?: number
+          storage_path?: string
+          status?: string
+          ocr_text?: string | null
+          extraction_json?: Json
+          warnings_json?: Json
+          error_text?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
       profiles: {
         Row: {
           id: string
@@ -471,6 +565,8 @@ export type Database = {
           warnings_json: Json
           clinician_action: string | null
           clinician_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
           created_at: string
           updated_at: string
         }
@@ -483,6 +579,8 @@ export type Database = {
           warnings_json?: Json
           clinician_action?: string | null
           clinician_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -495,6 +593,8 @@ export type Database = {
           warnings_json?: Json
           clinician_action?: string | null
           clinician_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           created_at?: string
           updated_at?: string
         }

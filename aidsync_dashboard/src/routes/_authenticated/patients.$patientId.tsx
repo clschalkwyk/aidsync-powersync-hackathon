@@ -1,4 +1,4 @@
-import { createFileRoute, useParams, Link } from '@tanstack/react-router'
+import { createFileRoute, useParams, Link, Outlet, useRouterState } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
@@ -18,10 +18,10 @@ import {
   User as UserIcon,
   ShieldAlert,
   Clock,
-  ExternalLink
+  Edit
 } from 'lucide-react'
 import { fetchPatientById } from '@/data/queries'
-import { formatDate } from '@/lib/utils'
+import { formatDate, parseEncounterNarrative, truncateText } from '@/lib/utils'
 
 export const Route = createFileRoute('/_authenticated/patients/$patientId')({
   component: MedicationPatientDetailPage,
@@ -29,10 +29,15 @@ export const Route = createFileRoute('/_authenticated/patients/$patientId')({
 
 function MedicationPatientDetailPage() {
   const { patientId } = useParams({ from: '/_authenticated/patients/$patientId' }) as { patientId: string }
+  const pathname = useRouterState({ select: (state) => state.location.pathname })
   const { data: patient, isLoading } = useQuery({
     queryKey: ['patient', patientId],
     queryFn: () => fetchPatientById(patientId),
   })
+
+  if (pathname !== `/patients/${patientId}`) {
+    return <Outlet />
+  }
 
   if (isLoading) {
     return (
@@ -91,14 +96,22 @@ function MedicationPatientDetailPage() {
             <h2 className="text-2xl font-black text-clinical-900 tracking-tight leading-none mt-1">{patient.full_name}</h2>
           </div>
         </div>
-        <div className="flex items-center gap-3 bg-white p-1.5 pl-4 rounded-2xl border border-clinical-100 shadow-sm">
-          <div className="flex flex-col items-end">
-            <p className="text-[9px] font-black text-clinical-400 uppercase tracking-widest leading-none mb-1">External System ID</p>
-            <p className="text-xs font-bold text-clinical-900 font-mono tracking-tighter">{patient.external_id || 'NOT ASSIGNED'}</p>
-          </div>
-          <div className="h-8 w-px bg-clinical-50 mx-1" />
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-clinical-900 text-brand-400 shadow-lg animate-glint shrink-0">
-            <UserIcon className="h-5 w-5" />
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <Button variant="outline" size="md" asChild className="h-11 px-5 font-black uppercase tracking-widest text-[10px] rounded-xl border-clinical-200">
+            <Link to="/patients/$patientId/edit" params={{ patientId }}>
+              <Edit className="mr-2 h-4 w-4" />
+              Edit Patient
+            </Link>
+          </Button>
+          <div className="flex items-center gap-3 bg-white p-1.5 pl-4 rounded-2xl border border-clinical-100 shadow-sm">
+            <div className="flex flex-col items-end">
+              <p className="text-[9px] font-black text-clinical-400 uppercase tracking-widest leading-none mb-1">External System ID</p>
+              <p className="text-xs font-bold text-clinical-900 font-mono tracking-tighter">{patient.external_id || 'NOT ASSIGNED'}</p>
+            </div>
+            <div className="h-8 w-px bg-clinical-50 mx-1" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-clinical-900 text-brand-400 shadow-lg animate-glint shrink-0">
+              <UserIcon className="h-5 w-5" />
+            </div>
           </div>
         </div>
       </div>
@@ -252,26 +265,6 @@ function MedicationPatientDetailPage() {
             </Card>
           </div>
 
-          <div className="p-6 rounded-3xl bg-clinical-900 text-white flex items-start gap-5 shadow-xl relative overflow-hidden group border-none animate-glint">
-            <div className="absolute top-0 right-0 p-4 opacity-[0.05] group-hover:rotate-12 transition-transform duration-700">
-              <Stethoscope size={80} />
-            </div>
-            <div className="h-12 w-12 rounded-2xl bg-white/10 flex items-center justify-center shrink-0 shadow-inner border border-white/10">
-              <ShieldAlert className="h-6 w-6 text-brand-400" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-base font-black tracking-tight leading-tight">Patient Safety Governance</p>
-              <p className="text-xs text-clinical-400 mt-1.5 leading-relaxed font-medium">
-                This clinical profile serves as the master context for automated safety checks. Ensure all allergies and conditions are verified to prevent clinical adverse events.
-              </p>
-              <div className="mt-5 flex gap-4">
-                <button className="text-[10px] font-black uppercase tracking-widest text-brand-400 hover:text-white transition-colors flex items-center gap-1.5 group/btn">
-                  Download Full History
-                  <ExternalLink className="h-3 w-3 group-hover/btn:-translate-y-0.5 group-hover/btn:translate-x-0.5 transition-transform" />
-                </button>
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Right Column: Encounters Timeline */}
@@ -287,30 +280,7 @@ function MedicationPatientDetailPage() {
               {patient.encounters && patient.encounters.length > 0 ? (
                 <div className="divide-y divide-clinical-50">
                   {patient.encounters.map((encounter) => (
-                    <Link
-                      key={encounter.id}
-                      to="/encounters/$encounterId"
-                      params={{ encounterId: encounter.id }}
-                      className="flex items-center justify-between p-6 hover:bg-clinical-50 transition-all group cursor-pointer active:scale-[0.98]"
-                    >
-                      <div className="flex items-start gap-5">
-                        <div className="mt-1 h-3 w-3 rounded-full bg-clinical-200 group-hover:scale-125 group-hover:bg-clinical-600 transition-all shrink-0 shadow-sm border-2 border-white outline outline-1 outline-clinical-50" />
-                        <div className="min-w-0">
-                          <p className="font-black text-clinical-900 text-lg tracking-tight leading-none group-hover:text-clinical-600 transition-colors">
-                            {formatDate(encounter.created_at)}
-                          </p>
-                          <p className="text-[10px] font-black text-clinical-400 uppercase tracking-[0.15em] mt-2 leading-none">
-                            {encounter.encounter_type?.replace('_', ' ') || 'Routine Session'}
-                          </p>
-                          <Badge variant={encounter.status === 'completed' || encounter.status === 'synced' ? 'success' : 'warning'} className="mt-3 text-[8px] px-1.5 border-none h-5">
-                            {encounter.status.toUpperCase()}
-                          </Badge>
-                        </div>
-                      </div>
-                      <div className="h-10 w-10 rounded-full bg-white shadow-sm border border-clinical-100 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0 shrink-0">
-                        <ChevronRight className="h-5 w-5 text-clinical-600" />
-                      </div>
-                    </Link>
+                    <PatientEncounterTimelineItem key={encounter.id} encounter={encounter} />
                   ))}
                 </div>
               ) : (
@@ -324,5 +294,45 @@ function MedicationPatientDetailPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+function PatientEncounterTimelineItem({ encounter }: { encounter: any }) {
+  const narrative = parseEncounterNarrative(encounter.notes_text)
+  const summary =
+    narrative.safetyResult ||
+    narrative.patientContext ||
+    encounter.ai_summary ||
+    truncateText(encounter.notes_text, 120)
+
+  return (
+    <Link
+      to="/encounters/$encounterId"
+      params={{ encounterId: encounter.id }}
+      className="flex items-center justify-between p-6 hover:bg-clinical-50 transition-all group cursor-pointer active:scale-[0.98]"
+    >
+      <div className="flex items-start gap-5">
+        <div className="mt-1 h-3 w-3 rounded-full bg-clinical-200 group-hover:scale-125 group-hover:bg-clinical-600 transition-all shrink-0 shadow-sm border-2 border-white outline outline-1 outline-clinical-50" />
+        <div className="min-w-0">
+          <p className="font-black text-clinical-900 text-lg tracking-tight leading-none group-hover:text-clinical-600 transition-colors">
+            {formatDate(encounter.created_at)}
+          </p>
+          <p className="text-[10px] font-black text-clinical-400 uppercase tracking-[0.15em] mt-2 leading-none">
+            {encounter.encounter_type?.replace('_', ' ') || 'Routine Session'}
+          </p>
+          {summary ? (
+            <p className="mt-3 text-xs font-bold text-clinical-600 leading-relaxed line-clamp-2 max-w-[220px]">
+              {summary}
+            </p>
+          ) : null}
+          <Badge variant={encounter.status === 'completed' || encounter.status === 'synced' ? 'success' : 'warning'} className="mt-3 text-[8px] px-1.5 border-none h-5">
+            {encounter.status.toUpperCase()}
+          </Badge>
+        </div>
+      </div>
+      <div className="h-10 w-10 rounded-full bg-white shadow-sm border border-clinical-100 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0 shrink-0">
+        <ChevronRight className="h-5 w-5 text-clinical-600" />
+      </div>
+    </Link>
   )
 }

@@ -73,11 +73,11 @@
   }
 
   .animate-in-fade {
-    animation: fade-in 0.4s ease-out forwards;
+    animation: fade-in 0.22s ease-out forwards;
   }
 
   .animate-in-slide-up {
-    animation: slide-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    animation: slide-up 0.22s ease-out forwards;
   }
 }
 
@@ -98,8 +98,19 @@
 }
 
 @keyframes slide-up {
-  from { opacity: 0; transform: translateY(10px); }
+  from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* Global scrollbar defaults */

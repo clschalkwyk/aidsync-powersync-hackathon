@@ -1,0 +1,40 @@
+project_id = "powersync"
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 17
+
+[studio]
+port = 54323
+
+[api]
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = [
+  "http://localhost:3000",
+  "http://localhost:8080",
+  "http://localhost:5173"
+]
+
+[storage]
+enabled = true
+
+[storage.buckets.scans]
+public = false
+file_size_limit = "10MiB"
+allowed_mime_types = ["image/jpeg", "image/png", "application/pdf"]
+
+[storage.buckets.attachments]
+public = false
+file_size_limit = "20MiB"
+allowed_mime_types = ["image/jpeg", "image/png", "application/pdf", "audio/mpeg", "audio/wav", "audio/mp4"]
+
+[functions.prepare-medication-reference]
+verify_jwt = false

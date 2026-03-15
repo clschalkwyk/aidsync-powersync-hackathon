@@ -1,22 +1,21 @@
-import { createFileRoute, Link, Outlet, useNavigate, useRouterState } from '@tanstack/react-router'
+import { createFileRoute, Link, Outlet, useRouterState } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
-import { Modal } from '@/components/ui/Modal'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { 
   Search, 
   Plus, 
   Beaker,
-  ChevronRight,
+  Edit,
   Tags,
   Info
 } from 'lucide-react'
 import { fetchActiveIngredients } from '@/data/queries'
 import { useAuth } from '@/hooks/useAuth'
-import { canManageReferenceData } from '@/lib/utils'
+import { canManageReferenceData, cn } from '@/lib/utils'
 export const Route = createFileRoute('/_authenticated/ingredients')({
   component: IngredientsPage,
 })
@@ -25,10 +24,7 @@ function IngredientsPage() {
   const { profile } = useAuth()
   const canEdit = canManageReferenceData(profile?.role)
   const [searchQuery, setSearchQuery] = useState('')
-  const navigate = useNavigate()
   const pathname = useRouterState({ select: (state) => state.location.pathname })
-  const isAddModalOpen = pathname === '/ingredients/new'
-  const isEditModalOpen = /^\/ingredients\/[^/]+\/edit$/.test(pathname)
 
   const { data: ingredients, isLoading } = useQuery({
     queryKey: ['ingredients'],
@@ -43,6 +39,10 @@ function IngredientsPage() {
       ing.ingredient_class?.toLowerCase().includes(query)
     )
   })
+
+  if (pathname !== '/ingredients') {
+    return <Outlet />
+  }
 
   return (
     <div className="space-y-6 pb-12 animate-in-fade">
@@ -111,14 +111,8 @@ function IngredientsPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredIngredients?.map((ing) => (
-              <Link 
-                key={ing.id} 
-                to="/ingredients/$ingredientId/edit"
-                params={{ ingredientId: ing.id }}
-                disabled={!canEdit}
-                className="group h-full"
-              >
+            {filteredIngredients?.map((ing) => {
+              const content = (
                 <Card className="h-full border-2 border-clinical-100 hover:border-clinical-400 hover:shadow-xl transition-all duration-500 overflow-hidden relative active:scale-[0.98]">
                   <CardContent className="p-6">
                     <div className="flex items-start gap-5">
@@ -130,7 +124,12 @@ function IngredientsPage() {
                           <h3 className="font-black text-clinical-900 text-lg leading-tight truncate tracking-tight mb-1">
                             {ing.canonical_name}
                           </h3>
-                          <ChevronRight className="h-4 w-4 text-clinical-200 group-hover:text-clinical-900 group-hover:translate-x-1 transition-all" />
+                          {canEdit && (
+                            <div className="h-8 px-3 rounded-lg border border-clinical-100 bg-white hover:border-clinical-200 shadow-sm flex items-center gap-1.5 shrink-0 transition-all group-hover:border-clinical-400">
+                              <Edit className="h-3 w-3 text-clinical-400 group-hover:text-clinical-900" />
+                              <span className="text-[9px] font-black uppercase tracking-widest text-clinical-600">Edit</span>
+                            </div>
+                          )}
                         </div>
                         <div className="flex flex-wrap items-center gap-2 mt-1">
                           {ing.ingredient_class && (
@@ -155,25 +154,26 @@ function IngredientsPage() {
                     </div>
                   </CardContent>
                 </Card>
-              </Link>
-            ))}
+              )
+
+              return canEdit ? (
+                <Link
+                  key={ing.id}
+                  to="/ingredients/$ingredientId/edit"
+                  params={{ ingredientId: ing.id }}
+                  className="group block h-full"
+                >
+                  {content}
+                </Link>
+              ) : (
+                <div key={ing.id} className={cn('group h-full cursor-default')}>
+                  {content}
+                </div>
+              )
+            })}
           </div>
         )}
       </div>
-
-      <Modal
-        isOpen={isAddModalOpen || isEditModalOpen}
-        onClose={() => navigate({ to: '/ingredients' })}
-        title={isEditModalOpen ? 'Edit Clinical Substance' : 'Add Clinical Substance'}
-        description={
-          isEditModalOpen
-            ? 'Update the normalized active ingredient record used by the medication safety catalog.'
-            : 'Create a normalized active ingredient record for the medication safety catalog.'
-        }
-        size="lg"
-      >
-        <Outlet />
-      </Modal>
     </div>
   )
 }

@@ -4,14 +4,13 @@ import { Card, CardContent } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
-import { Modal } from '@/components/ui/Modal'
 import { CardSkeleton } from '@/components/ui/Skeleton'
 import { 
   Search, 
   Plus, 
   Pill,
+  Edit,
   ChevronRight,
-  Filter,
   Building2,
   Info
 } from 'lucide-react'
@@ -19,6 +18,7 @@ import { fetchMedications } from '@/data/queries'
 import { canManageReferenceData } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
 import type { MedicationCatalog } from '@/types/database'
+import { useState } from 'react'
 
 export const Route = createFileRoute('/_authenticated/medications')({
   component: MedicationsPage,
@@ -28,10 +28,7 @@ function MedicationsPage() {
   const { profile } = useAuth()
   const canEdit = canManageReferenceData(profile?.role)
   const [searchQuery, setSearchQuery] = useState('')
-  const navigate = useNavigate()
   const pathname = useRouterState({ select: (state) => state.location.pathname })
-  const isAddModalOpen = pathname === '/medications/new'
-  const isEditModalOpen = /^\/medications\/[^/]+\/edit$/.test(pathname)
 
   const { data: medications, isLoading } = useQuery({
     queryKey: ['medications'],
@@ -47,6 +44,10 @@ function MedicationsPage() {
     )
   })
 
+  if (pathname !== '/medications') {
+    return <Outlet />
+  }
+
   return (
     <div className="space-y-6 animate-in-fade">
       {/* Header */}
@@ -59,12 +60,20 @@ function MedicationsPage() {
           </div>
           <h2 className="text-2xl sm:text-3xl font-black text-clinical-900 tracking-tight leading-none">Medication Reference</h2>
         </div>
-        <Button asChild disabled={!canEdit} className="w-full sm:w-auto shadow-lg shadow-clinical-600/20 font-black uppercase tracking-widest text-[10px] h-11 px-6 active:scale-95 transition-all">
-          <Link to="/medications/new">
-            <Plus className="h-5 w-5 mr-2" />
-            Add Medication Reference
-          </Link>
-        </Button>
+        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+          <Button variant="outline" asChild disabled={!canEdit} className="w-full sm:w-auto shadow-sm font-black uppercase tracking-widest text-[10px] h-11 px-6 active:scale-95 transition-all border-clinical-200 bg-white hover:border-clinical-400">
+            <Link to="/medications/prepare">
+              <Plus className="h-5 w-5 mr-2 text-clinical-400" />
+              Prepare Reference
+            </Link>
+          </Button>
+          <Button asChild disabled={!canEdit} className="w-full sm:w-auto shadow-lg shadow-clinical-600/20 font-black uppercase tracking-widest text-[10px] h-11 px-6 active:scale-95 transition-all">
+            <Link to="/medications/new">
+              <Plus className="h-5 w-5 mr-2" />
+              Add Medication Reference
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {!canEdit && (
@@ -86,7 +95,7 @@ function MedicationsPage() {
         </div>
       </div>
 
-      {/* Search & Filter Bar */}
+      {/* Search */}
       <div className="flex flex-col sm:flex-row gap-3 animate-in-slide-up" style={{ animationDelay: '0.15s' }}>
         <Card className="flex-1 border-clinical-200 shadow-md shadow-clinical-900/5">
           <CardContent className="p-2 px-3">
@@ -101,10 +110,6 @@ function MedicationsPage() {
             </div>
           </CardContent>
         </Card>
-        <Button variant="outline" className="h-14 sm:h-auto px-4 rounded-2xl border-clinical-200 bg-white active:scale-95 transition-all">
-          <Filter className="h-4 w-4 mr-2" />
-          <span className="font-bold text-xs uppercase tracking-widest text-clinical-600">Filters</span>
-        </Button>
       </div>
 
       {/* Results */}
@@ -117,8 +122,8 @@ function MedicationsPage() {
           </div>
         ) : filteredMedications?.length === 0 ? (
           <div className="py-24 text-center bg-clinical-50/50 rounded-3xl border-2 border-dashed border-clinical-200">
-            <Pill className="h-16 w-16 mx-auto text-clinical-200 mb-6 opacity-50" />
-            <h3 className="text-xl font-black text-clinical-900 tracking-tight">No Medication References Found</h3>
+            <Pill className="h-16 w-16 mx-auto text-clinical-200 mb-6 opacity-40" />
+            <h3 className="text-xl font-black text-clinical-900 tracking-tight uppercase">No Medication References Found</h3>
             <p className="text-clinical-500 mt-2 max-w-sm mx-auto font-medium">
               Start building your clinical reference library. Once added, medications can be linked to ingredients and safety rules.
             </p>
@@ -140,27 +145,21 @@ function MedicationsPage() {
         )}
       </div>
 
-      <Modal
-        isOpen={isAddModalOpen || isEditModalOpen}
-        onClose={() => navigate({ to: '/medications' })}
-        title={isEditModalOpen ? 'Edit Medication Reference' : 'Add Medication Reference'}
-        description={
-          isEditModalOpen
-            ? 'Update the medication record used for online review and offline sync.'
-            : 'Create a new medication record for online review and offline sync.'
-        }
-        size="lg"
-      >
-        <Outlet />
-      </Modal>
     </div>
   )
 }
 
-// Re-add missing useState
-import { useState } from 'react'
-
 function MedicationCard({ medication }: { medication: MedicationCatalog }) {
+  const { profile } = useAuth()
+  const canEdit = canManageReferenceData(profile?.role)
+  const navigate = useNavigate()
+
+  const handleQuickEdit = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    navigate({ to: `/medications/${medication.id}/edit` })
+  }
+
   return (
     <Link
       to="/medications/$medicationId"
@@ -173,9 +172,22 @@ function MedicationCard({ medication }: { medication: MedicationCatalog }) {
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-clinical-50 group-hover:bg-clinical-100 transition-colors shrink-0 shadow-inner group-hover:scale-110 duration-300 transition-transform">
               <Pill className="h-6 w-6 text-clinical-600" />
             </div>
-            {!medication.is_active && (
-              <Badge variant="default" className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5">Inactive</Badge>
-            )}
+            <div className="flex items-center gap-2">
+              {canEdit && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={handleQuickEdit}
+                  className="h-8 px-3 text-[9px] font-black uppercase tracking-widest text-clinical-400 hover:text-clinical-900 hover:bg-clinical-100 rounded-lg border border-transparent hover:border-clinical-200 transition-all"
+                >
+                  <Edit className="h-3 w-3 mr-1.5" />
+                  Quick Edit
+                </Button>
+              )}
+              {!medication.is_active && (
+                <Badge variant="default" className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5">Inactive</Badge>
+              )}
+            </div>
           </div>
           
           <div className="mt-5">
@@ -205,8 +217,9 @@ function MedicationCard({ medication }: { medication: MedicationCatalog }) {
                   </span>
                 )}
               </div>
-              <div className="h-8 w-8 rounded-full bg-clinical-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0 shadow-sm border border-clinical-100 shrink-0">
-                <ChevronRight className="h-4 w-4 text-clinical-600" />
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-clinical-50 border border-clinical-100 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0 shadow-sm shrink-0">
+                <span className="text-[8px] font-black uppercase tracking-widest text-clinical-600">Review & Edit</span>
+                <ChevronRight className="h-3.5 w-3.5 text-clinical-600" />
               </div>
             </div>
           </div>

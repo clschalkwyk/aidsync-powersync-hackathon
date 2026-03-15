@@ -71,13 +71,13 @@ function OverviewPage() {
       description: 'Synced field sessions'
     },
     { 
-      name: 'Manual Audit Flag', 
+      name: 'Flagged Decisions', 
       value: counts?.pendingChecks || 0, 
       icon: AlertTriangle, 
       color: 'text-safety-yellow', 
       bg: 'bg-safety-yellow/10',
       href: '/encounters',
-      description: 'Awaiting clinical review'
+      description: 'Warnings or note-only actions'
     },
   ]
 
@@ -109,7 +109,7 @@ function OverviewPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 animate-in-slide-up" style={{ animationDelay: '0.1s' }}>
         {stats_items.map((stat) => (
           <Link key={stat.name} to={stat.href} className="group h-full">
-            <Card className={`h-full border-2 hover:border-clinical-400 hover:shadow-2xl transition-all duration-500 overflow-hidden relative shadow-sm ${stat.name === 'Manual Audit Flag' && (counts?.pendingChecks || 0) > 0 ? 'border-safety-yellow/40 bg-safety-yellow/[0.02] animate-glint' : 'border-clinical-100'}`}>
+            <Card className={`h-full border-2 hover:border-clinical-400 hover:shadow-2xl transition-all duration-500 overflow-hidden relative shadow-sm ${stat.name === 'Flagged Decisions' && (counts?.pendingChecks || 0) > 0 ? 'border-safety-yellow/40 bg-safety-yellow/[0.02] animate-glint' : 'border-clinical-100'}`}>
               {isCountsLoading ? (
                 <CardContent className="p-6 space-y-4">
                   <div className="flex items-center gap-4">
@@ -225,12 +225,12 @@ function OverviewPage() {
           <Card className="border-clinical-200 shadow-lg h-full flex flex-col overflow-hidden rounded-[2rem]">
             <CardHeader className="py-6 px-8 border-b border-clinical-100 flex flex-row items-center justify-between bg-white shrink-0">
               <div className="space-y-1">
-                <CardTitle className="text-sm font-black uppercase tracking-[0.2em] text-clinical-900">Priority Audit Queue</CardTitle>
-                <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-clinical-400">Manual Intervention Required</CardDescription>
+                <CardTitle className="text-sm font-black uppercase tracking-[0.2em] text-clinical-900">Flagged Field Decisions</CardTitle>
+                <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-clinical-400">Warnings and note-only actions</CardDescription>
               </div>
               {counts?.pendingChecks && counts.pendingChecks > 0 ? (
                 <Badge variant="warning" className="h-7 px-3 font-black uppercase tracking-tighter text-[10px] shadow-sm animate-clinical-pulse bg-safety-yellow text-white border-none">
-                  {counts.pendingChecks} PENDING
+                  {counts.pendingChecks} FLAGGED
                 </Badge>
               ) : null}
             </CardHeader>

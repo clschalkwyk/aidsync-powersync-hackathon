@@ -1,9 +1,8 @@
-import { createFileRoute, useParams, Link, Outlet, useNavigate, useRouterState } from '@tanstack/react-router'
+import { createFileRoute, useParams, Link, Outlet, useRouterState } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
-import { Modal } from '@/components/ui/Modal'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { 
   ArrowLeft, 
@@ -15,9 +14,7 @@ import {
   Plus,
   Trash2,
   ShieldCheck,
-  ChevronRight,
   Info,
-  ExternalLink,
   Database
 } from 'lucide-react'
 import { 
@@ -37,9 +34,7 @@ function MedicationDetailPage() {
   const { profile } = useAuth()
   const canEdit = canManageReferenceData(profile?.role)
   const { medicationId } = useParams({ from: '/_authenticated/medications/$medicationId' }) as { medicationId: string }
-  const navigate = useNavigate()
   const pathname = useRouterState({ select: (state) => state.location.pathname })
-  const isEditModalOpen = pathname === `/medications/${medicationId}/edit`
   
   const { data: medication, isLoading: isMedicationLoading } = useQuery({
     queryKey: ['medication', medicationId],
@@ -66,6 +61,10 @@ function MedicationDetailPage() {
     if (confirm('Are you sure you want to remove this ingredient from this medication?')) {
       removeIngredientMutation.mutate(id)
     }
+  }
+
+  if (pathname !== `/medications/${medicationId}`) {
+    return <Outlet />
   }
 
   if (isMedicationLoading) {
@@ -137,10 +136,10 @@ function MedicationDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <Button variant="outline" size="sm" asChild disabled={!canEdit} className="h-10 px-5 font-black uppercase tracking-widest text-[10px] border-clinical-200 bg-white hover:bg-clinical-50 active:scale-95 transition-all shadow-sm">
+          <Button variant="outline" size="sm" asChild disabled={!canEdit} className="h-10 px-5 font-black uppercase tracking-widest text-[10px] border-clinical-200 bg-white hover:border-clinical-400 active:scale-95 transition-all shadow-sm group">
             <Link to="/medications/$medicationId/edit" params={{ medicationId }}>
-              <Edit className="h-3.5 w-3.5 mr-2" />
-              Edit Profile
+              <Edit className="h-3.5 w-3.5 mr-2 text-clinical-400 group-hover:text-clinical-900 transition-colors" />
+              Edit Medication Reference
             </Link>
           </Button>
           <div className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-clinical-900 text-white shadow-lg shadow-clinical-900/20">
@@ -236,6 +235,7 @@ function MedicationDetailPage() {
               </div>
             </CardContent>
           </Card>
+
         </div>
 
         {/* Main Workspace: Ingredients & Safety Context */}
@@ -309,12 +309,24 @@ function MedicationDetailPage() {
                                 variant="outline" 
                                 size="sm" 
                                 asChild
+                                className="h-8 px-3 text-[9px] font-black uppercase tracking-widest border-clinical-100 bg-white hover:border-clinical-200 shadow-sm group/edit"
+                                disabled={!canEdit}
+                              >
+                                <Link to="/ingredients/$ingredientId/edit" params={{ ingredientId: ing.ingredient_id }}>
+                                  <Edit className="h-3 w-3 mr-1 text-clinical-400 group-hover/edit:text-clinical-900" />
+                                  Edit Substance
+                                </Link>
+                              </Button>
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                asChild
                                 className="h-8 px-3 text-[9px] font-black uppercase tracking-widest border-clinical-100 bg-white hover:border-clinical-200 shadow-sm"
                                 disabled={!canEdit}
                               >
                                 <Link to="/interactions/new" search={{ ingredientId: ing.ingredient_id }}>
                                   <Plus className="h-3 w-3 mr-1" />
-                                  Rule
+                                  Add Rule
                                 </Link>
                               </Button>
                               <Button 
@@ -326,7 +338,7 @@ function MedicationDetailPage() {
                               >
                                 <Link to="/contraindications/new" search={{ ingredientId: ing.ingredient_id }}>
                                   <Plus className="h-3 w-3 mr-1" />
-                                  Caution
+                                  Add Caution
                                 </Link>
                               </Button>
                             </div>
@@ -402,13 +414,21 @@ function MedicationDetailPage() {
                                 {rule.effect_text}
                               </p>
                             </div>
-                            <Link 
-                              to="/interactions/$ruleId/edit" 
-                              params={{ ruleId: rule.id }} 
-                              className="h-8 w-8 rounded-lg bg-white flex items-center justify-center shrink-0 border border-clinical-100 shadow-sm group-hover:border-clinical-300 transition-all"
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              asChild
+                              className="h-8 px-3 text-[9px] font-black uppercase tracking-widest border-clinical-100 bg-white hover:border-clinical-200 shadow-sm shrink-0"
+                              disabled={!canEdit}
                             >
-                              <ChevronRight className="h-4 w-4 text-clinical-400 group-hover:text-clinical-900" />
-                            </Link>
+                              <Link 
+                                to="/interactions/$ruleId/edit" 
+                                params={{ ruleId: rule.id }} 
+                              >
+                                <Edit className="h-3 w-3 mr-1" />
+                                Edit
+                              </Link>
+                            </Button>
                           </div>
                         </div>
                       ))}
@@ -458,13 +478,21 @@ function MedicationDetailPage() {
                                 </span>
                               </div>
                             </div>
-                            <Link 
-                              to="/contraindications/$ruleId/edit" 
-                              params={{ ruleId: rule.id }} 
-                              className="h-8 w-8 rounded-lg bg-white flex items-center justify-center shrink-0 border border-clinical-100 shadow-sm group-hover:border-clinical-300 transition-all"
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              asChild
+                              className="h-8 px-3 text-[9px] font-black uppercase tracking-widest border-clinical-100 bg-white hover:border-clinical-200 shadow-sm shrink-0"
+                              disabled={!canEdit}
                             >
-                              <ChevronRight className="h-4 w-4 text-clinical-400 group-hover:text-clinical-900" />
-                            </Link>
+                              <Link 
+                                to="/contraindications/$ruleId/edit" 
+                                params={{ ruleId: rule.id }} 
+                              >
+                                <Edit className="h-3 w-3 mr-1" />
+                                Edit
+                              </Link>
+                            </Button>
                           </div>
                         </div>
                       ))}
@@ -492,26 +520,11 @@ function MedicationDetailPage() {
               <p className="text-[11px] text-clinical-400 mt-2 leading-relaxed font-medium max-w-2xl">
                 This medication reference is a core node in the clinical safety engine. Changes here are propagated to synchronized field devices for offline risk evaluation. Ensure all substance mappings and safety rules follow established clinical guidelines.
               </p>
-              <div className="mt-6">
-                <button className="text-[10px] font-black uppercase tracking-widest text-brand-400 hover:text-white transition-colors flex items-center gap-1.5 group/btn">
-                  Technical Implementation Specs
-                  <ExternalLink className="h-3 w-3 group-hover/btn:-translate-y-0.5 group-hover/btn:translate-x-0.5 transition-transform" />
-                </button>
-              </div>
             </div>
           </div>
 
         </div>
       </div>
-      <Modal
-        isOpen={isEditModalOpen}
-        onClose={() => navigate({ to: '/medications/$medicationId', params: { medicationId } })}
-        title="Edit Medication Reference"
-        description="Update the medication record used for online review and offline sync."
-        size="lg"
-      >
-        <Outlet />
-      </Modal>
     </div>
   )
 }

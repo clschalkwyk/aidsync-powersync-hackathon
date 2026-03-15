@@ -114,6 +114,8 @@ export interface InteractionCheck {
   warnings_json: unknown[];
   clinician_action: ClinicianAction | null;
   clinician_note: string | null;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -196,6 +198,56 @@ export interface MedicationContraindicationRule {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export type PreparationSessionStatus =
+  | 'draft'
+  | 'processing'
+  | 'ready_for_review'
+  | 'published'
+  | 'failed';
+
+export type PreparationPageStatus =
+  | 'uploaded'
+  | 'processing'
+  | 'extracted'
+  | 'failed';
+
+export interface LeafletPreparationSession {
+  id: string;
+  created_by: string;
+  status: PreparationSessionStatus;
+  source_name: string | null;
+  brand_name: string | null;
+  generic_name: string | null;
+  dosage_form: string | null;
+  manufacturer_name: string | null;
+  notes: string | null;
+  confidence: number | null;
+  warnings_json: string[];
+  draft_json: Record<string, unknown>;
+  published_medication_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LeafletPreparationPage {
+  id: string;
+  session_id: string;
+  page_index: number;
+  storage_path: string;
+  status: PreparationPageStatus;
+  ocr_text: string | null;
+  extraction_json: Record<string, unknown>;
+  warnings_json: string[];
+  error_text: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LeafletPreparationSessionDetail extends LeafletPreparationSession {
+  creator: Pick<Profile, 'id' | 'full_name' | 'role'> | null;
+  pages: LeafletPreparationPage[];
 }
 
 // Extended types for joined data
