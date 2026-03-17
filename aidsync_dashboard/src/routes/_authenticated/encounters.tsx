@@ -11,7 +11,6 @@ import {
   User,
   AlertTriangle,
   ClipboardCheck,
-  SquarePen,
 } from 'lucide-react'
 import { fetchEncounters } from '@/data/queries'
 import { formatDate, getEncounterAttentionState, getInteractionCheckFlagReasons, parseEncounterNarrative } from '@/lib/utils'
@@ -169,11 +168,6 @@ function EncounterCard({ encounter }: { encounter: any }) {
                   <Button variant="outline" size="sm" asChild className="h-9 px-3 font-black text-[10px] uppercase tracking-widest border-clinical-200 bg-white">
                     <Link to="/encounters/$encounterId" params={{ encounterId: encounter.id }}>
                       View
-                    </Link>
-                  </Button>
-                  <Button variant="ghost" size="sm" asChild className="h-9 w-9 p-0 rounded-xl text-clinical-500 hover:text-clinical-900 border border-clinical-100 bg-clinical-50">
-                    <Link to="/encounters/$encounterId/edit" params={{ encounterId: encounter.id }}>
-                      <SquarePen className="h-4 w-4" />
                     </Link>
                   </Button>
                 </div>

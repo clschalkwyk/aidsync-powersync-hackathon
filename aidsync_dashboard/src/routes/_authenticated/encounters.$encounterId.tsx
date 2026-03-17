@@ -1,9 +1,11 @@
+import { useEffect, useState } from 'react'
 import { createFileRoute, useParams, Link, Outlet, useRouterState } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { TextArea } from '@/components/ui/TextArea'
 import { 
   ArrowLeft, 
   Activity, 
@@ -22,13 +24,78 @@ import {
   ClipboardList,
   User,
 } from 'lucide-react'
-import { fetchEncounterById, updateInteractionCheck } from '@/data/queries'
-import { formatClinicianAction, formatDate, formatDateTime, getEncounterAttentionState, getInteractionCheckFlagReasons, getSeverityBadgeColor, parseEncounterNarrative } from '@/lib/utils'
+import { fetchEncounterById, updateEncounter, updateInteractionCheck } from '@/data/queries'
+import { canManageReferenceData, formatClinicianAction, formatDate, formatDateTime, getEncounterAttentionState, getInteractionCheckFlagReasons, getSeverityBadgeColor, getUserFriendlyErrorMessage, parseEncounterNarrative } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
 
 export const Route = createFileRoute('/_authenticated/encounters/$encounterId')({
   component: EncounterDetailPage,
 })
+
+type CheckWarningView = {
+  title: string
+  detail: string
+  severity: 'red' | 'yellow' | 'green'
+}
+
+function normalizeWarningSeverity(value: unknown): 'red' | 'yellow' | 'green' {
+  const normalized = String(value ?? '').trim().toLowerCase()
+  if (normalized === 'red' || normalized === 'high' || normalized === 'severe') return 'red'
+  if (normalized === 'yellow' || normalized === 'medium' || normalized === 'warning') return 'yellow'
+  return 'green'
+}
+
+function formatWarningCode(code: unknown): string {
+  const normalized = String(code ?? '').trim().toLowerCase()
+  switch (normalized) {
+    case 'allergy_overlap':
+      return 'Allergy overlap'
+    case 'drug_interaction':
+      return 'Drug interaction'
+    case 'pregnancy_caution':
+      return 'Pregnancy caution'
+    case 'lactation_caution':
+      return 'Lactation caution'
+    case 'age_restriction':
+      return 'Age restriction'
+    default:
+      return normalized ? normalized.replace(/_/g, ' ') : 'Clinical warning'
+  }
+}
+
+function formatInteractionWarning(warning: unknown, fallbackSeverity: string): CheckWarningView {
+  if (typeof warning === 'string') {
+    return {
+      title: 'Clinical warning',
+      detail: warning,
+      severity: normalizeWarningSeverity(fallbackSeverity),
+    }
+  }
+
+  if (warning && typeof warning === 'object' && !Array.isArray(warning)) {
+    const record = warning as Record<string, unknown>
+    const title =
+      String(record.title ?? '').trim() ||
+      formatWarningCode(record.code)
+    const detail =
+      String(record.detail ?? '').trim() ||
+      String(record.reason ?? '').trim() ||
+      String(record.effect_text ?? '').trim() ||
+      'Clinical review note recorded for this check.'
+
+    return {
+      title,
+      detail,
+      severity: normalizeWarningSeverity(record.severity ?? fallbackSeverity),
+    }
+  }
+
+  return {
+    title: 'Clinical warning',
+    detail: String(warning ?? 'Clinical review note recorded for this check.'),
+    severity: normalizeWarningSeverity(fallbackSeverity),
+  }
+}
 
 function EncounterDetailPage() {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
@@ -56,6 +123,27 @@ function EncounterDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['encounters'] })
       queryClient.invalidateQueries({ queryKey: ['overview-counts'] })
       queryClient.invalidateQueries({ queryKey: ['overview-stats'] })
+      queryClient.invalidateQueries({ queryKey: ['patient', encounter?.patient_id] })
+    },
+  })
+  const [reviewNote, setReviewNote] = useState('')
+
+  useEffect(() => {
+    setReviewNote(encounter?.supervisor_review_note || '')
+  }, [encounter?.supervisor_review_note])
+
+  const canReviewEncounter = canManageReferenceData(profile?.role)
+
+  const reviewEncounterMutation = useMutation({
+    mutationFn: () =>
+      updateEncounter(encounterId, {
+        supervisor_review_note: reviewNote.trim() || null,
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: profile?.id ?? null,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['encounter', encounterId] })
+      queryClient.invalidateQueries({ queryKey: ['encounters'] })
       queryClient.invalidateQueries({ queryKey: ['patient', encounter?.patient_id] })
     },
   })
@@ -122,6 +210,8 @@ function EncounterDetailPage() {
   const needsManualAudit = attentionState.needsAttention
   const hasVitals = sidebarVitals.length > 0
   const hasEvidence = Boolean(encounter.scanned_inserts?.length || encounter.attachments?.length)
+  const hasEncounterReview = Boolean(encounter.reviewed_at || encounter.supervisor_review_note)
+  const showSidebar = hasVitals || hasEvidence || canReviewEncounter || hasEncounterReview
   const overallSeverity = highSeverityCount > 0 ? 'red' : warningCount > 0 || noteOnlyCount > 0 ? 'yellow' : 'green'
   const overallOutcomeLabel =
     narrative.safetyResult ||
@@ -194,11 +284,6 @@ function EncounterDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-3 bg-white p-2 pl-5 rounded-2xl border border-clinical-100 shadow-sm shrink-0">
-          <Button variant="outline" size="sm" asChild className="h-10 px-4 font-black text-[10px] uppercase tracking-widest border-clinical-200 bg-white shrink-0">
-            <Link to="/encounters/$encounterId/edit" params={{ encounterId }}>
-              Edit Encounter
-            </Link>
-          </Button>
           <div className="flex flex-col items-end">
             <p className="text-[9px] font-black text-clinical-400 uppercase tracking-widest leading-none mb-1">Session Recorded</p>
             <p className="text-sm font-bold text-clinical-900 tracking-tight">{formatDateTime(encounter.created_at)}</p>
@@ -272,7 +357,7 @@ function EncounterDetailPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Left Content Area: Session Details & Safety */}
-        <div className={`${hasVitals || hasEvidence ? 'lg:col-span-8' : 'lg:col-span-12'} space-y-8 animate-in-slide-up`} style={{ animationDelay: '0.15s' }}>
+        <div className={`${showSidebar ? 'lg:col-span-8' : 'lg:col-span-12'} space-y-8 animate-in-slide-up`} style={{ animationDelay: '0.15s' }}>
           {/* Clinical Outcome & Safety Checks */}
           <div className="space-y-4">
             <div className="flex items-center justify-between px-1">
@@ -362,14 +447,47 @@ function EncounterDetailPage() {
                             <div className="space-y-3">
                               <p className="text-[9px] font-black text-clinical-400 uppercase tracking-[0.2em] px-1">Triggered Clinical Rules</p>
                               <div className="space-y-2">
-                                {check.warnings_json.map((warning: any, idx: number) => (
-                                  <div key={idx} className="flex items-start gap-4 p-5 rounded-2xl bg-clinical-50/50 border border-clinical-100/60 shadow-inner group/warn hover:bg-white hover:border-clinical-200 transition-all">
-                                    <div className={`h-2 w-2 rounded-full mt-2 shrink-0 ${check.severity === 'red' ? 'bg-safety-red' : 'bg-safety-yellow'}`} />
-                                    <p className="text-sm font-bold text-clinical-900 leading-relaxed tracking-tight">
-                                      {typeof warning === 'string' ? warning : JSON.stringify(warning)}
-                                    </p>
-                                  </div>
-                                ))}
+                                {check.warnings_json.map((warning: any, idx: number) => {
+                                  const formattedWarning = formatInteractionWarning(warning, check.severity)
+                                  const severityTone =
+                                    formattedWarning.severity === 'red'
+                                      ? 'bg-safety-red'
+                                      : formattedWarning.severity === 'yellow'
+                                        ? 'bg-safety-yellow'
+                                        : 'bg-safety-green'
+
+                                  return (
+                                    <div key={idx} className="flex items-start gap-4 p-5 rounded-2xl bg-clinical-50/50 border border-clinical-100/60 shadow-inner group/warn hover:bg-white hover:border-clinical-200 transition-all">
+                                      <div className={`h-2 w-2 rounded-full mt-2 shrink-0 ${severityTone}`} />
+                                      <div className="space-y-1.5 min-w-0">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                          <p className="text-[11px] font-black uppercase tracking-[0.12em] text-clinical-900">
+                                            {formattedWarning.title}
+                                          </p>
+                                          <Badge
+                                            variant={
+                                              formattedWarning.severity === 'red'
+                                                ? 'danger'
+                                                : formattedWarning.severity === 'yellow'
+                                                  ? 'warning'
+                                                  : 'success'
+                                            }
+                                            className="h-5 px-2 text-[8px] border-none uppercase tracking-widest font-black"
+                                          >
+                                            {formattedWarning.severity === 'red'
+                                              ? 'Critical'
+                                              : formattedWarning.severity === 'yellow'
+                                                ? 'Caution'
+                                                : 'Info'}
+                                          </Badge>
+                                        </div>
+                                        <p className="text-sm font-bold text-clinical-700 leading-relaxed tracking-tight">
+                                          {formattedWarning.detail}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  )
+                                })}
                               </div>
                             </div>
                           )}
@@ -491,8 +609,60 @@ function EncounterDetailPage() {
         </div>
 
         {/* Right Sidebar: Contextual Audit Data */}
-        {hasVitals || hasEvidence ? (
+        {showSidebar ? (
         <div className="lg:col-span-4 space-y-6 animate-in-slide-up" style={{ animationDelay: '0.2s' }}>
+          {(canReviewEncounter || hasEncounterReview) ? (
+          <Card className="rounded-3xl border-clinical-200 shadow-sm overflow-hidden">
+            <CardHeader className="py-4 px-6 border-b border-clinical-50 bg-white">
+              <CardTitle className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-clinical-500">
+                <MessageSquare className="h-4 w-4" />
+                Supervisor Review
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6 space-y-4">
+              {encounter.reviewed_at ? (
+                <div className="rounded-2xl bg-clinical-50/40 border border-clinical-100 p-4">
+                  <p className="text-[10px] font-black uppercase tracking-[0.15em] text-clinical-400">Last reviewed</p>
+                  <p className="mt-1 text-sm font-bold text-clinical-900">{formatDateTime(encounter.reviewed_at)}</p>
+                </div>
+              ) : null}
+              {canReviewEncounter ? (
+                <>
+                  <TextArea
+                    value={reviewNote}
+                    onChange={(event) => setReviewNote(event.target.value)}
+                    rows={5}
+                    placeholder="Add a supervisor review note for this encounter audit trail..."
+                    className="font-bold border-2 border-clinical-100 focus:border-brand-400"
+                  />
+                  {reviewEncounterMutation.error ? (
+                    <p className="text-xs font-bold text-safety-red leading-relaxed">
+                      {getUserFriendlyErrorMessage(reviewEncounterMutation.error, 'Failed to save supervisor review note.')}
+                    </p>
+                  ) : null}
+                  <Button
+                    onClick={() => reviewEncounterMutation.mutate()}
+                    disabled={reviewEncounterMutation.isPending}
+                    className="w-full h-11 font-black text-[10px] uppercase tracking-widest"
+                  >
+                    {reviewEncounterMutation.isPending ? 'Saving review...' : 'Save review note'}
+                  </Button>
+                </>
+              ) : encounter.supervisor_review_note ? (
+                <div className="rounded-2xl bg-clinical-50/40 border border-clinical-100 p-4">
+                  <p className="text-[10px] font-black uppercase tracking-[0.15em] text-clinical-400">Review note</p>
+                  <p className="mt-2 text-sm font-bold text-clinical-900 leading-relaxed whitespace-pre-line">
+                    {encounter.supervisor_review_note}
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-2xl bg-clinical-50/40 border border-clinical-100 p-4">
+                  <p className="text-sm font-bold text-clinical-700 leading-relaxed">No supervisor review note has been recorded for this encounter.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+          ) : null}
           
           {/* Vitals Trace Card */}
           {hasVitals ? (

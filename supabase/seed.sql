@@ -301,8 +301,8 @@ insert into public.medication_contraindication_rules (
     '10000000-0000-0000-0000-000000000004',
     'Severe liver impairment',
     'organ_function',
-    'high',
-    'Use with caution or avoid depending on severity.',
+    'medium',
+    'Review liver function and use caution before administration.',
     'manual_seed'
   ),
   (
@@ -321,6 +321,15 @@ insert into public.medication_contraindication_rules (
     'condition',
     'high',
     'Not recommended as primary therapy.',
+    'manual_seed'
+  ),
+  (
+    '50000000-0000-0000-0000-000000000005',
+    '10000000-0000-0000-0000-000000000002',
+    'Pregnancy',
+    'pregnancy',
+    'medium',
+    'Pregnancy caution applies. Review gestation and use only when clearly needed.',
     'manual_seed'
   );
 
@@ -350,6 +359,15 @@ insert into public.patients (
     'male',
     'not_pregnant',
     'Mobile clinic west'
+  ),
+  (
+    '33333333-3333-3333-3333-333333333333',
+    'FIELD-003',
+    'Themba Ndlovu',
+    '2024-11-18',
+    'male',
+    'not_pregnant',
+    'Child wellness tent'
   );
 
 insert into public.patient_allergies (
@@ -380,6 +398,12 @@ insert into public.patient_conditions (
     '11111111-1111-1111-1111-111111111111',
     'pregnancy',
     'Second trimester'
+  ),
+  (
+    '43333333-3333-3333-3333-333333333333',
+    '33333333-3333-3333-3333-333333333333',
+    'acute dysentery',
+    'Bloody diarrhoea reported today'
   );
 
 insert into public.current_medications (

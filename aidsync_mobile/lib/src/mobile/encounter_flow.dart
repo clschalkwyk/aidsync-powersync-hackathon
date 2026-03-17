@@ -19,6 +19,9 @@ class _EncounterWorkspaceScreenState extends State<_EncounterWorkspaceScreen> {
   bool _savingContext = false;
   bool _finalizing = false;
   bool _contextExpanded = false;
+  bool _voiceRecording = false;
+  bool _voiceTranscribing = false;
+  String? _voiceStatus;
   String? _error;
 
   final _complaintController = TextEditingController();
@@ -39,6 +42,9 @@ class _EncounterWorkspaceScreenState extends State<_EncounterWorkspaceScreen> {
 
   @override
   void dispose() {
+    if (_voiceRecording) {
+      unawaited(cactusVoiceNoteService.cancelRecording());
+    }
     _complaintController.dispose();
     _noteController.dispose();
     _voiceNoteController.dispose();
@@ -166,6 +172,71 @@ class _EncounterWorkspaceScreenState extends State<_EncounterWorkspaceScreen> {
       if (mounted) {
         setState(() => _finalizing = false);
       }
+    }
+  }
+
+  Future<void> _startVoiceNoteCapture() async {
+    try {
+      final hasPermission = await cactusVoiceNoteService.ensurePermission();
+      if (!hasPermission) {
+        if (!mounted) return;
+        setState(() {
+          _voiceStatus = 'Microphone permission is required for voice notes.';
+        });
+        return;
+      }
+
+      await cactusVoiceNoteService.startRecording();
+      if (!mounted) return;
+      setState(() {
+        _voiceRecording = true;
+        _voiceStatus = 'Recording voice note...';
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _voiceStatus = 'Failed to start voice note capture: $e';
+      });
+    }
+  }
+
+  Future<void> _stopVoiceNoteCapture() async {
+    setState(() {
+      _voiceRecording = false;
+      _voiceTranscribing = true;
+      _voiceStatus = 'Preparing Cactus speech model...';
+    });
+
+    try {
+      final transcript = await cactusVoiceNoteService.stopAndTranscribe(
+        onProgress: (status, progress) {
+          if (!mounted) return;
+          setState(() {
+            if (progress == null) {
+              _voiceStatus = status;
+            } else {
+              _voiceStatus = '$status ${(progress * 100).toStringAsFixed(0)}%';
+            }
+          });
+        },
+      );
+      if (!mounted) return;
+
+      final existing = _voiceNoteController.text.trim();
+      _voiceNoteController.text = existing.isEmpty
+          ? transcript
+          : '$existing\n\n$transcript';
+
+      setState(() {
+        _voiceTranscribing = false;
+        _voiceStatus = 'Voice note transcribed locally with Cactus.';
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _voiceTranscribing = false;
+        _voiceStatus = 'Voice note transcription failed: $e';
+      });
     }
   }
 
@@ -370,6 +441,42 @@ class _EncounterWorkspaceScreenState extends State<_EncounterWorkspaceScreen> {
                           hintText: 'Optional transcript for a recorded voice note.',
                         ),
                       ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _voiceRecording
+                                ? FilledButton.icon(
+                                    onPressed: _voiceTranscribing ? null : _stopVoiceNoteCapture,
+                                    icon: _voiceTranscribing
+                                        ? const SizedBox(
+                                            width: 16,
+                                            height: 16,
+                                            child: CircularProgressIndicator(strokeWidth: 2),
+                                          )
+                                        : const Icon(Icons.stop_circle_outlined),
+                                    label: const Text('Stop and transcribe'),
+                                  )
+                                : OutlinedButton.icon(
+                                    onPressed: workspace.encounter.status == 'completed' || _voiceTranscribing
+                                        ? null
+                                        : _startVoiceNoteCapture,
+                                    icon: const Icon(Icons.mic_none_outlined),
+                                    label: const Text('Capture voice note'),
+                                  ),
+                          ),
+                        ],
+                      ),
+                      if (_voiceStatus != null) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          _voiceStatus!,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 12),
                       _ResponsiveInputWrap(
                         fields: [
@@ -1341,6 +1448,11 @@ class _EncounterHandoffSummaryScreenState extends State<_EncounterHandoffSummary
                           label: workspace.encounter.pendingSync ? 'Pending sync' : 'Synced or ready',
                           icon: Icons.sync_outlined,
                         ),
+                        if (workspace.encounter.reviewedAt != null)
+                          _ContextChip(
+                            label: 'Supervisor reviewed',
+                            icon: Icons.verified_outlined,
+                          ),
                         if (workspace.patientDetail.patient.locationText.isNotEmpty)
                           _ContextChip(
                             label: workspace.patientDetail.patient.locationText,
@@ -1399,6 +1511,14 @@ class _EncounterHandoffSummaryScreenState extends State<_EncounterHandoffSummary
                       _RecordRowCard(
                         icon: Icons.mic_none_outlined,
                         text: 'Voice note transcript\n${workspace.voiceNoteTranscript.trim()}',
+                      ),
+                    ],
+                    if ((workspace.encounter.supervisorReviewNote ?? '').trim().isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      _RecordRowCard(
+                        icon: Icons.fact_check_outlined,
+                        text:
+                            'Supervisor review\n${workspace.encounter.supervisorReviewNote!.trim()}',
                       ),
                     ],
                     if (vitals.isNotEmpty) ...[
@@ -1503,6 +1623,11 @@ class _EncounterCard extends StatelessWidget {
                         label: encounter.pendingSync ? 'Pending sync' : 'Synced',
                         color: encounter.pendingSync ? theme.colorScheme.primary : const Color(0xFF027A48),
                       ),
+                      if (encounter.reviewedAt != null)
+                        _EncounterStatusBadge(
+                          label: 'Supervisor reviewed',
+                          color: theme.colorScheme.tertiary,
+                        ),
                       if ((encounter.highestSeverity ?? '').isNotEmpty)
                         _EncounterStatusBadge(
                           label: _severityLabel(encounter.highestSeverity!),
@@ -1834,4 +1959,3 @@ class _EncounterStatusBadge extends StatelessWidget {
     );
   }
 }
-

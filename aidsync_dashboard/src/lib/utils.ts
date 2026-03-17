@@ -130,6 +130,12 @@ export type EncounterNarrativeSections = {
   vitals: Array<{ label: string; value: string }>
 }
 
+export type EncounterNarrativeStorageFormat = 'empty' | 'json' | 'narrative' | 'plain'
+
+export type EncounterNarrativeDraft = EncounterNarrativeSections & {
+  format: EncounterNarrativeStorageFormat
+}
+
 const ENCOUNTER_SECTION_TITLES = [
   'Patient context',
   'Medication under consideration',
@@ -142,7 +148,11 @@ const ENCOUNTER_SECTION_TITLES = [
 ] as const
 
 export function parseEncounterNarrative(text: string | null | undefined): EncounterNarrativeSections {
-  const empty: EncounterNarrativeSections = {
+  return parseEncounterNarrativeDraft(text)
+}
+
+export function parseEncounterNarrativeDraft(text: string | null | undefined): EncounterNarrativeDraft {
+  const empty: EncounterNarrativeDraft = {
     patientContext: '',
     medicationUnderConsideration: '',
     safetyResult: '',
@@ -151,6 +161,7 @@ export function parseEncounterNarrative(text: string | null | undefined): Encoun
     clinicianNote: '',
     voiceNoteTranscript: '',
     vitals: [],
+    format: 'empty',
   }
 
   if (!text?.trim()) return empty
@@ -171,6 +182,7 @@ export function parseEncounterNarrative(text: string | null | undefined): Encoun
         clinicianNote: String((decoded as Record<string, unknown>).clinicianNote ?? '').trim(),
         voiceNoteTranscript: String((decoded as Record<string, unknown>).voiceNoteTranscript ?? '').trim(),
         vitals,
+        format: 'json',
       }
     }
   } catch {
@@ -185,6 +197,7 @@ export function parseEncounterNarrative(text: string | null | undefined): Encoun
     return {
       ...empty,
       clinicianNote: text.trim(),
+      format: 'plain',
     }
   }
 
@@ -225,7 +238,72 @@ export function parseEncounterNarrative(text: string | null | undefined): Encoun
     clinicianNote: sections.get('Clinician note') || '',
     voiceNoteTranscript: sections.get('Voice note transcript') || '',
     vitals,
+    format: 'narrative',
   }
+}
+
+export function serializeEncounterNarrative(draft: EncounterNarrativeDraft): string | null {
+  const normalizedVitals = draft.vitals
+    .map((item) => ({
+      label: item.label.trim(),
+      value: item.value.trim(),
+    }))
+    .filter((item) => item.label && item.value)
+
+  if (draft.format === 'json') {
+    const vitalsObject = Object.fromEntries(normalizedVitals.map((item) => [item.label, item.value]))
+    const payload = {
+      presentingComplaint: draft.patientContext.trim(),
+      clinicianNote: draft.clinicianNote.trim(),
+      voiceNoteTranscript: draft.voiceNoteTranscript.trim(),
+      vitals: vitalsObject,
+    }
+    if (
+      !payload.presentingComplaint &&
+      !payload.clinicianNote &&
+      !payload.voiceNoteTranscript &&
+      Object.keys(vitalsObject).length === 0
+    ) {
+      return null
+    }
+    return JSON.stringify(payload)
+  }
+
+  const sections: string[] = []
+  if (draft.patientContext.trim()) {
+    sections.push(`Patient context:\n${draft.patientContext.trim()}`)
+  }
+  if (draft.medicationUnderConsideration.trim()) {
+    sections.push(`Medication under consideration:\n${draft.medicationUnderConsideration.trim()}`)
+  }
+  if (draft.safetyResult.trim()) {
+    sections.push(`Safety result:\n${draft.safetyResult.trim()}`)
+  }
+  if (draft.safetyReasoning.length > 0) {
+    sections.push(`Safety reasoning:\n${draft.safetyReasoning.map((item) => `- ${item.trim()}`).join('\n')}`)
+  }
+  if (draft.clinicianAction.trim()) {
+    sections.push(`Clinician action:\n${draft.clinicianAction.trim()}`)
+  }
+  if (draft.clinicianNote.trim()) {
+    sections.push(`Clinician note:\n${draft.clinicianNote.trim()}`)
+  }
+  if (draft.voiceNoteTranscript.trim()) {
+    sections.push(`Voice note transcript:\n${draft.voiceNoteTranscript.trim()}`)
+  }
+  if (normalizedVitals.length > 0) {
+    sections.push(`Vitals:\n${normalizedVitals.map((item) => `${item.label}: ${item.value}`).join('\n')}`)
+  }
+
+  if (sections.length === 0) {
+    return null
+  }
+
+  if (draft.format === 'plain' && !draft.patientContext.trim() && !draft.voiceNoteTranscript.trim() && normalizedVitals.length === 0) {
+    return draft.clinicianNote.trim() || null
+  }
+
+  return sections.join('\n\n')
 }
 
 export function formatClinicianAction(action: string | null | undefined): string {

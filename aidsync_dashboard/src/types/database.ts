@@ -67,6 +67,9 @@ export interface Encounter {
   encounter_type: string | null;
   notes_text: string | null;
   ai_summary: string | null;
+  supervisor_review_note: string | null;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
   status: EncounterStatus;
   created_at: string;
   updated_at: string;

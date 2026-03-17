@@ -709,6 +709,8 @@ class _HomeScreenState extends State<_HomeScreen> {
         clinicianNote: null,
         medicationChecksCount: 0,
         highestSeverity: null,
+        supervisorReviewNote: null,
+        reviewedAt: null,
         pendingSync: false,
         createdAt: DateTime.fromMillisecondsSinceEpoch(0),
         updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
@@ -873,7 +875,7 @@ class _HomeScreenState extends State<_HomeScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Browse the prepared offline reference set before or during care. If a medicine is missing, add a custom local entry and continue with manual review.',
+                'These medicines are prepared online in the dashboard, synced down through PowerSync, and used directly in the encounter check flow on this device. If one is missing, add a custom local entry and continue with manual review.',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                   height: 1.45,
@@ -1388,4 +1390,3 @@ class _SyncScreenState extends State<_SyncScreen> {
     );
   }
 }
-

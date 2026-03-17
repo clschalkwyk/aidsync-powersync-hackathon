@@ -449,6 +449,9 @@ export type Database = {
           encounter_type: string | null
           notes_text: string | null
           ai_summary: string | null
+          supervisor_review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
           status: string
           created_at: string
           updated_at: string
@@ -460,6 +463,9 @@ export type Database = {
           encounter_type?: string | null
           notes_text?: string | null
           ai_summary?: string | null
+          supervisor_review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           status?: string
           created_at?: string
           updated_at?: string
@@ -471,6 +477,9 @@ export type Database = {
           encounter_type?: string | null
           notes_text?: string | null
           ai_summary?: string | null
+          supervisor_review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           status?: string
           created_at?: string
           updated_at?: string

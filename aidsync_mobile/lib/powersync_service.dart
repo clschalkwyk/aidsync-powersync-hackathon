@@ -69,6 +69,9 @@ const Schema schema = Schema([
     Column.text('encounter_type'),
     Column.text('notes_text'),
     Column.text('ai_summary'),
+    Column.text('supervisor_review_note'),
+    Column.text('reviewed_at'),
+    Column.text('reviewed_by'),
     Column.text('status'),
     Column.text('created_at'),
     Column.text('updated_at'),
@@ -411,6 +414,8 @@ class EncounterDraft {
     required this.clinicianNote,
     required this.medicationChecksCount,
     required this.highestSeverity,
+    required this.supervisorReviewNote,
+    required this.reviewedAt,
     required this.pendingSync,
     required this.createdAt,
     required this.updatedAt,
@@ -424,6 +429,8 @@ class EncounterDraft {
   final String? clinicianNote;
   final int medicationChecksCount;
   final String? highestSeverity;
+  final String? supervisorReviewNote;
+  final DateTime? reviewedAt;
   final bool pendingSync;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -601,6 +608,21 @@ Future<void> _ensureFreshSupabaseSession() async {
 }
 
 Future<void> _repairLocalSchemaIfNeeded() async {
+  await _ensureColumnExists(
+    table: 'encounters',
+    column: 'supervisor_review_note',
+    type: 'TEXT',
+  );
+  await _ensureColumnExists(
+    table: 'encounters',
+    column: 'reviewed_at',
+    type: 'TEXT',
+  );
+  await _ensureColumnExists(
+    table: 'encounters',
+    column: 'reviewed_by',
+    type: 'TEXT',
+  );
   await _ensureColumnExists(
     table: 'interaction_checks',
     column: 'updated_at',
@@ -1069,6 +1091,8 @@ Future<List<EncounterDraft>> loadEncounterDrafts() async {
       p.full_name AS patient_name,
       e.status,
       e.notes_text,
+      e.supervisor_review_note,
+      e.reviewed_at,
       e.created_at,
       e.updated_at,
       COUNT(ic.id) AS medication_checks_count,
@@ -1104,6 +1128,9 @@ Future<List<EncounterDraft>> loadEncounterDrafts() async {
       highestSeverity: _severityFromRank(
         int.tryParse('${row['max_severity_rank'] ?? 0}') ?? 0,
       ),
+      supervisorReviewNote:
+          '${row['supervisor_review_note'] ?? ''}'.trim().isEmpty ? null : '${row['supervisor_review_note']}',
+      reviewedAt: _parseDateTime('${row['reviewed_at'] ?? ''}'),
       pendingSync: _isRecordPendingSync(updatedAt, lastSyncedAt),
       createdAt: _parseDateTime('${row['created_at'] ?? ''}') ?? DateTime.now(),
       updatedAt: updatedAt,
@@ -1114,7 +1141,7 @@ Future<List<EncounterDraft>> loadEncounterDrafts() async {
 Future<EncounterWorkspaceData> loadEncounterWorkspace(String encounterId) async {
   final lastSyncedAt = db.currentStatus.lastSyncedAt?.toLocal();
   final encounterRows = await db.getAll('''
-    SELECT e.id, e.patient_id, e.status, e.notes_text, e.created_at, e.updated_at, p.full_name AS patient_name
+    SELECT e.id, e.patient_id, e.status, e.notes_text, e.supervisor_review_note, e.reviewed_at, e.created_at, e.updated_at, p.full_name AS patient_name
     FROM encounters e
     JOIN patients p ON p.id = e.patient_id
     WHERE e.id = ?
@@ -1192,6 +1219,9 @@ Future<EncounterWorkspaceData> loadEncounterWorkspace(String encounterId) async 
       clinicianNote: context.clinicianNote,
       medicationChecksCount: checks.length,
       highestSeverity: highestSeverity,
+      supervisorReviewNote:
+          '${encounterRow['supervisor_review_note'] ?? ''}'.trim().isEmpty ? null : '${encounterRow['supervisor_review_note']}',
+      reviewedAt: _parseDateTime('${encounterRow['reviewed_at'] ?? ''}'),
       pendingSync: _isRecordPendingSync(encounterUpdatedAt, lastSyncedAt),
       createdAt: _parseDateTime('${encounterRow['created_at'] ?? ''}') ?? DateTime.now(),
       updatedAt: encounterUpdatedAt,
