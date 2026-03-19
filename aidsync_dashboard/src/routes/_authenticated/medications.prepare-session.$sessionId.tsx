@@ -1,9 +1,10 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import {
   ArrowLeft,
   CheckCircle2,
+  Clock,
   ChevronDown,
   ChevronUp,
   FileWarning,
@@ -11,6 +12,8 @@ import {
   Trash2,
   Timer,
   UploadCloud,
+  FileText,
+  Link2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
@@ -26,11 +29,13 @@ import {
   processPreparationPage,
   publishPreparationSession,
   deletePreparationSession,
+  importPreparationPdfPages,
   updatePreparationSession,
   uploadPreparationPage,
 } from '@/data/queries'
 import { queryClient } from '@/lib/queryClient'
 import { getUserFriendlyErrorMessage } from '@/lib/utils'
+import { extractPdfPagesFromFile, extractPdfPagesFromUrl } from '@/lib/pdfLeaflet'
 
 export const Route = createFileRoute('/_authenticated/medications/prepare-session/$sessionId')({
   component: PreparationSessionWorkspace,
@@ -67,7 +72,7 @@ type BatchProgressState = {
   pageDurations: Record<string, number>
 }
 
-const MAX_PREPARATION_PAGES = 10
+const MAX_PREPARATION_PAGES = 50
 
 function isOcrComplete(status: string) {
   return status === 'extracted'
@@ -250,7 +255,13 @@ function PreparationSessionWorkspace() {
   const [manualIngredientName, setManualIngredientName] = useState('')
   const [manualIngredientStrength, setManualIngredientStrength] = useState('')
   const [showUploadedPages, setShowUploadedPages] = useState(true)
+  const [intakeMode, setIntakeMode] = useState<'images' | 'pdf'>('images')
+  const [pdfUrl, setPdfUrl] = useState('')
+  const [imageSelectionLabel, setImageSelectionLabel] = useState('')
+  const [pdfSelectionLabel, setPdfSelectionLabel] = useState('')
   const [pendingDraft, setPendingDraft] = useState<DraftJson | null>(null)
+  const pageUploadInputRef = useRef<HTMLInputElement | null>(null)
+  const pdfUploadInputRef = useRef<HTMLInputElement | null>(null)
   const [batchProgress, setBatchProgress] = useState<BatchProgressState>({
     mode: 'idle',
     total: 0,
@@ -324,7 +335,68 @@ function PreparationSessionWorkspace() {
         nextFiles.map((file, index) => uploadPreparationPage(session.id, file, existingPages + index + 1))
       )
     },
-    onSuccess: refreshSession,
+    onSuccess: async () => {
+      setImageSelectionLabel('')
+      await refreshSession()
+    },
+  })
+
+  const importPdfFileMutation = useMutation({
+    mutationFn: async (file: File | null) => {
+      if (!file || !session) return
+      const existingPages = session.pages.length
+      const remainingSlots = Math.max(0, MAX_PREPARATION_PAGES - existingPages)
+      const extractedPages = await extractPdfPagesFromFile(file)
+      const nextPages = extractedPages.slice(0, remainingSlots).map((page, index) => ({
+        pageIndex: existingPages + index + 1,
+        text: page.text,
+        sourceLabel: file.name,
+      }))
+
+      if (nextPages.length === 0) {
+        throw new Error('No usable PDF text was found, or the session page limit is already reached.')
+      }
+
+      await importPreparationPdfPages(session.id, nextPages)
+      await updatePreparationSession(session.id, {
+        source_name: session.source_name || file.name,
+      })
+    },
+    onSuccess: async () => {
+      setPdfSelectionLabel('')
+      await refreshSession()
+    },
+  })
+
+  const importPdfUrlMutation = useMutation({
+    mutationFn: async () => {
+      if (!session) return
+      const url = pdfUrl.trim()
+      if (!url) {
+        throw new Error('PDF URL is required.')
+      }
+      const existingPages = session.pages.length
+      const remainingSlots = Math.max(0, MAX_PREPARATION_PAGES - existingPages)
+      const extractedPages = await extractPdfPagesFromUrl(url)
+      const nextPages = extractedPages.slice(0, remainingSlots).map((page, index) => ({
+        pageIndex: existingPages + index + 1,
+        text: page.text,
+        sourceLabel: url.split('/').pop() || 'leaflet.pdf',
+      }))
+
+      if (nextPages.length === 0) {
+        throw new Error('No usable PDF text was found, or the session page limit is already reached.')
+      }
+
+      await importPreparationPdfPages(session.id, nextPages)
+      await updatePreparationSession(session.id, {
+        source_name: session.source_name || url,
+      })
+    },
+    onSuccess: async () => {
+      setPdfUrl('')
+      await refreshSession()
+    },
   })
 
   const processPageMutation = useMutation({
@@ -691,39 +763,139 @@ function PreparationSessionWorkspace() {
               {deleteMutation.isPending ? 'Deleting…' : 'Delete Draft'}
             </Button>
           )}
-          <Button
-            variant="outline"
-            onClick={() => saveDraftMutation.mutate({ ...draft, active_ingredients: draftIngredients })}
-            disabled={saveDraftMutation.isPending || !hasUnsavedChanges}
-          >
-            {saveDraftMutation.isPending ? 'Saving…' : hasUnsavedChanges ? 'Save Draft' : 'Draft Saved'}
-          </Button>
-          <Button
-            onClick={() => publishMutation.mutate()}
-            disabled={!canPublish}
-          >
-            {publishMutation.isPending ? 'Publishing…' : 'Publish Saved Draft'}
-          </Button>
+          {session.status === 'published' ? (
+            <>
+              <div className="inline-flex min-h-11 items-center rounded-2xl border border-safety-green/20 bg-safety-green/10 px-4 text-[11px] font-black uppercase tracking-[0.16em] text-safety-green">
+                Published to catalog
+              </div>
+              {session.published_medication_id && (
+                <Button asChild>
+                  <Link to="/medications/$medicationId" params={{ medicationId: session.published_medication_id }}>
+                    View Published Medication
+                  </Link>
+                </Button>
+              )}
+            </>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                onClick={() => saveDraftMutation.mutate({ ...draft, active_ingredients: draftIngredients })}
+                disabled={saveDraftMutation.isPending || !hasUnsavedChanges}
+              >
+                {saveDraftMutation.isPending ? 'Saving…' : hasUnsavedChanges ? 'Save Draft' : 'Draft Saved'}
+              </Button>
+              <Button
+                onClick={() => publishMutation.mutate()}
+                disabled={!canPublish}
+              >
+                {publishMutation.isPending ? 'Publishing…' : 'Publish Saved Draft'}
+              </Button>
+            </>
+          )}
         </div>
         </div>
         <div className="mt-3 flex justify-end">
           <p
             className={`text-sm font-medium ${
-              canPublish ? 'text-safety-green' : 'text-clinical-500'
+              session.status === 'published'
+                ? 'text-safety-green'
+                : canPublish
+                  ? 'text-safety-green'
+                  : 'text-clinical-500'
             }`}
           >
-            {publishHint}
+            {session.status === 'published'
+              ? 'This preparation session has already been published to the shared medication catalog.'
+              : publishHint}
           </p>
         </div>
-        <div className="mt-5 grid gap-3 md:grid-cols-4">
-          <MetricTile label="Pages" value={session.pages.length} />
-          <MetricTile label="OCR Complete" value={extractedPageCount} tone={extractedPageCount > 0 ? 'brand' : 'default'} />
-          <MetricTile label="Warnings" value={sessionWarnings.length} tone={sessionWarnings.length > 0 ? 'warning' : 'success'} />
-          <MetricTile
-            label="Confidence"
-            value={typeof session.confidence === 'number' ? `${session.confidence}%` : '—'}
-            tone={typeof session.confidence === 'number' && session.confidence >= 75 ? 'success' : 'default'}
-          />
+        <div className="mt-5 grid gap-3 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,0.9fr)]">
+          <div className="rounded-3xl border border-brand-100 bg-clinical-50/70 p-4">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-clinical-500">Preparation flow</p>
+                <p className="mt-1 text-sm font-medium text-clinical-600">
+                  One session should move cleanly from source pages to a reviewed medication draft.
+                </p>
+              </div>
+              <Badge variant={workflowStep >= 4 ? 'success' : workflowStep >= 3 ? 'info' : 'default'}>
+                Step {workflowStep} of 4
+              </Badge>
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-4">
+              {[
+                {
+                  step: 1,
+                  title: 'Collect',
+                  detail: 'Images or PDF',
+                },
+                {
+                  step: 2,
+                  title: 'Extract',
+                  detail: 'OCR or PDF text',
+                },
+                {
+                  step: 3,
+                  title: 'Review',
+                  detail: 'Build the draft',
+                },
+                {
+                  step: 4,
+                  title: 'Publish',
+                  detail: 'Push to catalog',
+                },
+              ].map((item) => {
+                const state =
+                  workflowStep === item.step
+                    ? 'active'
+                    : workflowStep > item.step
+                      ? 'complete'
+                      : 'idle'
+
+                return (
+                  <div
+                    key={item.step}
+                    className={`rounded-2xl border px-4 py-3 transition-colors ${
+                      state === 'active'
+                        ? 'border-brand-200 bg-brand-50 shadow-sm'
+                        : state === 'complete'
+                          ? 'border-safety-green/20 bg-safety-green/10'
+                          : 'border-clinical-100 bg-white'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-black ${
+                          state === 'active'
+                            ? 'bg-brand-600 text-white'
+                            : state === 'complete'
+                              ? 'bg-safety-green text-white'
+                              : 'border border-clinical-200 bg-white text-clinical-500'
+                        }`}
+                      >
+                        {state === 'complete' ? <CheckCircle2 className="h-4 w-4" /> : item.step}
+                      </div>
+                      <div>
+                        <p className="text-sm font-black text-clinical-900">{item.title}</p>
+                        <p className="text-xs font-medium text-clinical-500">{item.detail}</p>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-2">
+            <MetricTile label="Pages" value={session.pages.length} />
+            <MetricTile label="OCR Complete" value={extractedPageCount} tone={extractedPageCount > 0 ? 'brand' : 'default'} />
+            <MetricTile label="Warnings" value={sessionWarnings.length} tone={sessionWarnings.length > 0 ? 'warning' : 'success'} />
+            <MetricTile
+              label="Confidence"
+              value={typeof session.confidence === 'number' ? `${session.confidence}%` : '—'}
+              tone={typeof session.confidence === 'number' && session.confidence >= 75 ? 'success' : 'default'}
+            />
+          </div>
         </div>
       </div>
 
@@ -731,110 +903,248 @@ function PreparationSessionWorkspace() {
         <div className="space-y-6">
           <Card className="border-clinical-200 bg-white shadow-sm">
             <CardHeader>
-              <CardTitle className="text-sm font-black uppercase tracking-[0.16em] text-clinical-500">Preparation Flow</CardTitle>
+              <div className="space-y-2">
+                <CardTitle className="text-sm font-black uppercase tracking-[0.16em] text-clinical-500">Source Intake</CardTitle>
+                <p className="text-sm text-clinical-600">
+                  Choose one source path, collect the document pages, then run extraction and build the medication draft from the combined text.
+                </p>
+              </div>
             </CardHeader>
-            <CardContent>
-              <div className="grid gap-3 md:grid-cols-4">
-                {[
-                  {
-                    step: 1,
-                    title: 'Upload',
-                    detail: `Add up to ${MAX_PREPARATION_PAGES} page images`,
-                  },
-                  {
-                    step: 2,
-                    title: 'OCR',
-                    detail: 'Process each page and collect text',
-                  },
-                  {
-                    step: 3,
-                    title: 'Draft',
-                    detail: 'Build one reviewed draft from all page text',
-                  },
-                  {
-                    step: 4,
-                    title: 'Publish',
-                    detail: 'Review fields and publish the reference',
-                  },
-                ].map((item) => {
-                  const state =
-                    workflowStep === item.step
-                      ? 'active'
-                      : workflowStep > item.step
-                        ? 'complete'
-                        : 'idle'
+            <CardContent className="space-y-4">
+              <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+                <div className="space-y-1">
+                  <p className="text-lg font-black tracking-tight text-clinical-900">Choose the source document format</p>
+                  <p className="text-sm text-clinical-600">
+                    Pick one intake mode, add the source document, then run extraction into the same medication draft workflow.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant="default">Max {MAX_PREPARATION_PAGES} pages</Badge>
+                  <Badge variant={activePageCount > 0 ? 'info' : 'default'}>{activePageCount} queued</Badge>
+                  <Badge variant={failedPageCount > 0 ? 'danger' : 'default'}>{failedPageCount} failed</Badge>
+                </div>
+              </div>
 
-                  return (
-                    <div
-                      key={item.step}
-                      className={`rounded-2xl border p-4 transition-colors ${
-                        state === 'active'
-                          ? 'border-brand-200 bg-brand-50 shadow-sm'
-                          : state === 'complete'
-                            ? 'border-safety-green/20 bg-safety-green/10'
-                            : 'border-clinical-100 bg-white'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-black ${
-                            state === 'active'
-                              ? 'bg-brand-600 text-white'
-                              : state === 'complete'
-                                ? 'bg-safety-green text-white'
-                                : 'bg-white text-clinical-500 border border-clinical-200'
-                          }`}
-                        >
-                          {state === 'complete' ? <CheckCircle2 className="h-4 w-4" /> : item.step}
+              <div className="rounded-3xl border border-clinical-100 bg-clinical-50/50 p-3">
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => setIntakeMode('images')}
+                    className={`rounded-2xl border px-4 py-4 text-left transition ${
+                      intakeMode === 'images'
+                        ? 'border-brand-200 bg-white shadow-sm'
+                        : 'border-transparent bg-transparent hover:border-clinical-200 hover:bg-white/70'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`flex h-10 w-10 items-center justify-center rounded-2xl border ${
+                        intakeMode === 'images'
+                          ? 'border-brand-100 bg-brand-50 text-brand-700'
+                          : 'border-clinical-200 bg-white text-clinical-500'
+                      }`}>
+                        <UploadCloud className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-clinical-500">Upload page images</p>
+                        <p className="mt-1 text-sm font-black text-clinical-900">Best for scans and photos</p>
+                      </div>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIntakeMode('pdf')}
+                    className={`rounded-2xl border px-4 py-4 text-left transition ${
+                      intakeMode === 'pdf'
+                        ? 'border-brand-200 bg-white shadow-sm'
+                        : 'border-transparent bg-transparent hover:border-clinical-200 hover:bg-white/70'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`flex h-10 w-10 items-center justify-center rounded-2xl border ${
+                        intakeMode === 'pdf'
+                          ? 'border-brand-100 bg-brand-50 text-brand-700'
+                          : 'border-clinical-200 bg-white text-clinical-500'
+                      }`}>
+                        <FileText className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-clinical-500">Import leaflet PDF</p>
+                        <p className="mt-1 text-sm font-black text-clinical-900">Best for regulator PDFs</p>
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {intakeMode === 'images' ? (
+                <div className="rounded-3xl border border-brand-100 bg-gradient-to-br from-brand-50 via-white to-brand-50/40 p-5 shadow-sm">
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-brand-100 bg-white shadow-sm">
+                        <UploadCloud className="h-5 w-5 text-brand-700" />
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-brand-700">Upload page images</p>
                         </div>
-                        <div>
-                          <p className="text-sm font-black text-clinical-900">{item.title}</p>
-                          <p className="text-xs font-medium text-clinical-500">{item.detail}</p>
+                        <p className="text-lg font-black tracking-tight text-clinical-900">Run page-by-page OCR from leaflet images</p>
+                        <p className="text-sm leading-6 text-clinical-600">
+                          Use this when the source is a photographed leaflet, scan set, or exported page sequence.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-5 rounded-2xl border border-brand-100 bg-white/90 p-4">
+                      <input
+                        ref={pageUploadInputRef}
+                        id="page-upload"
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        multiple
+                        className="hidden"
+                        disabled={uploadMutation.isPending || session.pages.length >= MAX_PREPARATION_PAGES || activeProcessing}
+                        onChange={(event) => {
+                          const files = event.target.files
+                          setImageSelectionLabel(
+                            files && files.length > 0
+                              ? files.length === 1
+                                ? files[0].name
+                                : `${files.length} image files selected`
+                              : ''
+                          )
+                          uploadMutation.mutate(files)
+                        }}
+                      />
+                      <div className="space-y-4">
+                        <div className="rounded-2xl border border-dashed border-brand-100 bg-brand-50/40 px-4 py-5 text-center">
+                          <p className="text-sm font-bold text-clinical-900">Drop or choose ordered page images</p>
+                          <p className="mt-1 text-xs text-clinical-500">
+                            JPG, PNG, or WebP. One session builds one medication draft.
+                          </p>
+                        </div>
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-clinical-400">Image intake</p>
+                            <p className="mt-1 truncate text-sm font-medium text-clinical-600">
+                              {imageSelectionLabel || `Add up to ${MAX_PREPARATION_PAGES} ordered page images`}
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={() => pageUploadInputRef.current?.click()}
+                            disabled={uploadMutation.isPending || session.pages.length >= MAX_PREPARATION_PAGES || activeProcessing}
+                          >
+                            {uploadMutation.isPending ? 'Uploading…' : 'Choose images'}
+                          </Button>
                         </div>
                       </div>
                     </div>
-                  )
-                })}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-clinical-200 bg-white shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-sm font-black uppercase tracking-[0.16em] text-clinical-500">Page Intake</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-3 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,0.85fr)]">
-                <div className="rounded-2xl border border-dashed border-brand-100 bg-brand-50/40 p-4">
-                  <div className="mb-3 flex items-center gap-2">
-                    <UploadCloud className="h-4 w-4 text-brand-700" />
-                    <Label htmlFor="page-upload" className="block text-[10px] font-black uppercase tracking-widest text-brand-700">
-                      Upload up to {MAX_PREPARATION_PAGES} images
-                    </Label>
                   </div>
-                  <p className="mb-3 text-sm text-clinical-600">
-                    Upload ordered leaflet pages first. OCR runs page-by-page, then the draft is built once from the collected text.
-                  </p>
-                  <Input
-                    id="page-upload"
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    multiple
-                    disabled={uploadMutation.isPending || session.pages.length >= MAX_PREPARATION_PAGES || activeProcessing}
-                    onChange={(event) => uploadMutation.mutate(event.target.files)}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <MetricTile label="Queued" value={activePageCount} tone={activePageCount > 0 ? 'brand' : 'default'} />
-                  <MetricTile label="Failed" value={failedPageCount} tone={failedPageCount > 0 ? 'danger' : 'default'} />
-                </div>
-              </div>
+              ) : (
+                <div className="rounded-3xl border border-brand-100 bg-gradient-to-br from-clinical-50 via-white to-brand-50/20 p-5 shadow-sm">
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-brand-100 bg-white shadow-sm">
+                        <FileText className="h-5 w-5 text-brand-700" />
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-brand-700">Import leaflet PDF</p>
+                        </div>
+                        <p className="text-lg font-black tracking-tight text-clinical-900">Extract text directly from a leaflet PDF</p>
+                        <p className="text-sm leading-6 text-clinical-600">
+                          Use this when the source already exists as a regulator or manufacturer PDF. The extracted page text feeds the same review workflow.
+                        </p>
+                      </div>
+                    </div>
 
-              <div className="rounded-2xl border border-clinical-100 bg-clinical-50/60 p-4">
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-clinical-500">Processing Queue</p>
-                    <p className="text-base font-black text-clinical-900">
+                    <div className="mt-5 grid gap-3">
+                      <div className="rounded-2xl border border-brand-100 bg-white/90 p-4">
+                        <input
+                          ref={pdfUploadInputRef}
+                          id="pdf-upload"
+                          type="file"
+                          accept="application/pdf"
+                          className="hidden"
+                          disabled={importPdfFileMutation.isPending || session.pages.length >= MAX_PREPARATION_PAGES || activeProcessing}
+                          onChange={(event) => {
+                            const file = event.target.files?.[0] ?? null
+                            setPdfSelectionLabel(file?.name ?? '')
+                            importPdfFileMutation.mutate(file)
+                          }}
+                        />
+                        <div className="space-y-4">
+                          <div className="rounded-2xl border border-dashed border-brand-100 bg-brand-50/25 px-4 py-5 text-center">
+                            <p className="text-sm font-bold text-clinical-900">Import a local leaflet PDF</p>
+                            <p className="mt-1 text-xs text-clinical-500">
+                              Faster than page OCR when the document already has a usable text layer.
+                            </p>
+                          </div>
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="min-w-0">
+                              <p className="text-[10px] font-black uppercase tracking-widest text-clinical-400">Local PDF</p>
+                              <p className="mt-1 truncate text-sm font-medium text-clinical-600">
+                                {pdfSelectionLabel || 'Choose one leaflet PDF from your machine'}
+                              </p>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => pdfUploadInputRef.current?.click()}
+                              disabled={importPdfFileMutation.isPending || session.pages.length >= MAX_PREPARATION_PAGES || activeProcessing}
+                            >
+                              {importPdfFileMutation.isPending ? 'Importing…' : 'Choose PDF'}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="rounded-2xl border border-clinical-100 bg-white p-4 space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Link2 className="h-4 w-4 text-clinical-500" />
+                          <Label htmlFor="pdf-url" className="text-[10px] font-black uppercase tracking-widest text-clinical-500">
+                            PDF URL
+                          </Label>
+                        </div>
+                        <Input
+                          id="pdf-url"
+                          value={pdfUrl}
+                          placeholder="https://pi-pil-repository.sahpra.org.za/...pdf"
+                          onChange={(event) => setPdfUrl(event.target.value)}
+                          disabled={importPdfUrlMutation.isPending || session.pages.length >= MAX_PREPARATION_PAGES || activeProcessing}
+                        />
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-xs font-medium text-clinical-500">
+                            Use upload if the source blocks browser access or CORS.
+                          </p>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => importPdfUrlMutation.mutate()}
+                            disabled={!pdfUrl.trim() || importPdfUrlMutation.isPending || session.pages.length >= MAX_PREPARATION_PAGES || activeProcessing}
+                          >
+                            {importPdfUrlMutation.isPending ? 'Importing…' : 'Import from URL'}
+                          </Button>
+                        </div>
+                      </div>
+
+                      {(importPdfFileMutation.isError || importPdfUrlMutation.isError) && (
+                        <div className="rounded-2xl border border-safety-red/20 bg-safety-red/10 px-4 py-3 text-sm text-safety-red">
+                          {getUserFriendlyErrorMessage(
+                            importPdfFileMutation.error ?? importPdfUrlMutation.error,
+                            'PDF import failed.',
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+              )}
+
+              <div className="rounded-3xl border border-clinical-100 bg-clinical-50/60 p-5">
+                <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-clinical-500">Processing queue</p>
+                      <p className="text-lg font-black tracking-tight text-clinical-900">
                       {activeProcessing
                         ? batchProgress.mode === 'batch'
                           ? batchProgress.currentPageId
@@ -848,34 +1158,46 @@ function PreparationSessionWorkspace() {
                             : extractedPageCount > 0
                               ? 'All uploaded pages have OCR text. Build the draft when ready.'
                             : 'No pages are waiting for OCR.'}
-                    </p>
-                    <p className="text-xs font-medium text-clinical-600">
-                      Process All runs OCR page-by-page and then builds one draft from the combined text.
-                    </p>
+                      </p>
+                      <p className="text-sm text-clinical-600">
+                        Process all pages when the intake set is ready. Build Draft remains available when you already have extracted text.
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Badge variant={activePageCount > 0 ? 'info' : 'default'}>{activePageCount} queued</Badge>
+                      <Badge variant={extractedPageCount > 0 ? 'success' : 'default'}>{extractedPageCount} extracted</Badge>
+                      <Badge variant={failedPageCount > 0 ? 'danger' : 'default'}>{failedPageCount} failed</Badge>
+                      <Badge variant={draftReady ? 'success' : 'default'}>{draftReady ? 'draft ready' : 'draft pending'}</Badge>
+                    </div>
                   </div>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <div className="rounded-xl border border-brand-100 bg-white px-3 py-2 text-xs font-bold text-brand-800">
-                      Overall {formatDuration(overallElapsed)}
+                  <div className="w-full max-w-[360px] rounded-2xl border border-clinical-100 bg-white p-4 shadow-sm">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-clinical-400">Queue controls</p>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                      <div className="rounded-xl border border-brand-100 bg-brand-50/50 px-3 py-2 text-xs font-bold text-brand-800">
+                        Overall {formatDuration(overallElapsed)}
+                      </div>
+                      <div className="rounded-xl border border-clinical-100 bg-clinical-50 px-3 py-2 text-xs font-bold text-clinical-600">
+                        {activeProcessing && batchProgress.currentPageId ? `Current page ${formatDuration(pageElapsed)}` : 'Idle'}
+                      </div>
                     </div>
-                    <div className="rounded-xl border border-clinical-100 bg-white px-3 py-2 text-xs font-bold text-clinical-600">
-                      {activeProcessing && batchProgress.currentPageId ? `Current page ${formatDuration(pageElapsed)}` : 'Idle'}
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => processAllMutation.mutate()}
+                        disabled={processAllMutation.isPending || activePageCount === 0 || activeProcessing}
+                      >
+                        {processAllMutation.isPending ? 'Running…' : 'Process All'}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => extractSessionMutation.mutate()}
+                        disabled={extractSessionMutation.isPending || activeProcessing || extractedPageCount === 0}
+                      >
+                        {extractSessionMutation.isPending ? 'Building…' : 'Build Draft'}
+                      </Button>
                     </div>
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={() => processAllMutation.mutate()}
-                      disabled={processAllMutation.isPending || activePageCount === 0 || activeProcessing}
-                    >
-                      {processAllMutation.isPending ? 'Running OCR + Draft Build…' : 'Process All'}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => extractSessionMutation.mutate()}
-                      disabled={extractSessionMutation.isPending || activeProcessing || extractedPageCount === 0}
-                    >
-                      {extractSessionMutation.isPending ? 'Building Draft…' : 'Build Draft'}
-                    </Button>
                   </div>
                 </div>
                 <div className="mt-4">
@@ -905,17 +1227,49 @@ function PreparationSessionWorkspace() {
                     </div>
                   </div>
                 </div>
-              ) : readyForReview && !draftReady ? (
-                <div className="rounded-2xl border border-brand-100 bg-white p-4">
-                  <div className="flex items-start gap-3">
-                    <CheckCircle2 className="mt-0.5 h-5 w-5 text-safety-green" />
-                    <div className="space-y-1">
-                      <p className="text-sm font-black text-clinical-900">OCR complete. Draft build is the next step.</p>
-                      <p className="text-sm text-clinical-600">
-                        All uploaded pages now have OCR text. Click <span className="font-bold text-clinical-900">Build Draft</span> to combine the
-                        collected text into one reviewable medication reference.
-                      </p>
+              ) : activePageCount > 0 ? (
+                <div className="rounded-2xl border border-brand-200 bg-brand-50/60 p-4">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="flex items-start gap-3">
+                      <Clock className="mt-0.5 h-5 w-5 text-brand-700" />
+                      <div className="space-y-1">
+                        <p className="text-sm font-black text-brand-900">Next step: run extraction on the collected pages.</p>
+                        <p className="text-sm text-clinical-700">
+                          {activePageCount} uploaded page{activePageCount === 1 ? '' : 's'} {activePageCount === 1 ? 'is' : 'are'} waiting for OCR. Process them now to produce the reviewable medication draft.
+                        </p>
+                      </div>
                     </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => processAllMutation.mutate()}
+                      disabled={processAllMutation.isPending || activeProcessing}
+                    >
+                      {processAllMutation.isPending ? 'Running OCR…' : 'Run OCR And Build Draft'}
+                    </Button>
+                  </div>
+                </div>
+              ) : readyForReview && !draftReady ? (
+                <div className="rounded-2xl border border-safety-green/20 bg-safety-green/10 p-4">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="flex items-start gap-3">
+                      <CheckCircle2 className="mt-0.5 h-5 w-5 text-safety-green" />
+                      <div className="space-y-1">
+                        <p className="text-sm font-black text-clinical-900">Next step: build the medication draft.</p>
+                        <p className="text-sm text-clinical-700">
+                          OCR is complete for all collected pages. Build the draft now to combine the extracted text into one reviewable medication reference.
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="w-full lg:w-auto lg:min-w-[190px] whitespace-normal text-center leading-5"
+                      onClick={() => extractSessionMutation.mutate()}
+                      disabled={extractSessionMutation.isPending || activeProcessing}
+                    >
+                      {extractSessionMutation.isPending ? 'Building Draft…' : 'Build Draft Now'}
+                    </Button>
                   </div>
                 </div>
               ) : null}
@@ -1013,45 +1367,58 @@ function PreparationSessionWorkspace() {
               </div>
             </CardContent>
           </Card>
-
-          <Card className="border-clinical-200 shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-sm font-black uppercase tracking-[0.16em] text-clinical-500">Warnings & Confidence</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-2xl border border-clinical-100 bg-clinical-50 p-4">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-clinical-400">Confidence</p>
-                  <p className="mt-2 text-2xl font-black text-clinical-900">{typeof session.confidence === 'number' ? `${session.confidence}%` : '—'}</p>
-                </div>
-                <div className="rounded-2xl border border-clinical-100 bg-clinical-50 p-4">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-clinical-400">Warnings</p>
-                  <p className="mt-2 text-2xl font-black text-clinical-900">{sessionWarnings.length}</p>
-                </div>
-              </div>
-              {sessionWarnings.length === 0 ? (
-                <div className="rounded-2xl border border-safety-green/20 bg-safety-green/10 p-4 text-sm font-medium text-safety-green">
-                  No merge warnings currently raised.
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {sessionWarnings.map((warning, index) => (
-                    <div key={`${warning}-${index}`} className="flex items-start gap-3 rounded-2xl border border-safety-yellow/20 bg-safety-yellow/10 p-4 text-sm text-safety-yellow">
-                      <FileWarning className="mt-0.5 h-4 w-4 shrink-0" />
-                      <span>{warning}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
         </div>
 
         <div className="space-y-6 xl:sticky xl:top-6">
             <Card className="border-clinical-200 bg-white shadow-sm">
               <CardHeader>
                 <div className="space-y-2">
-                  <CardTitle className="text-sm font-black uppercase tracking-[0.16em] text-clinical-500">Draft Editor</CardTitle>
+                  <CardTitle className="text-sm font-black uppercase tracking-[0.16em] text-clinical-500">Review readiness</CardTitle>
+                  <p className="text-sm text-clinical-600">
+                    Use this rail to decide whether the extracted session is ready for a clean medication draft and publish step.
+                  </p>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-2xl border border-clinical-100 bg-clinical-50 p-4">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-clinical-400">Confidence</p>
+                    <p className="mt-2 text-2xl font-black text-clinical-900">{typeof session.confidence === 'number' ? `${session.confidence}%` : '—'}</p>
+                  </div>
+                  <div className="rounded-2xl border border-clinical-100 bg-clinical-50 p-4">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-clinical-400">Warnings</p>
+                    <p className="mt-2 text-2xl font-black text-clinical-900">{sessionWarnings.length}</p>
+                  </div>
+                </div>
+                <div
+                  className={`rounded-2xl border p-4 text-sm font-medium ${
+                    canPublish
+                      ? 'border-safety-green/20 bg-safety-green/10 text-safety-green'
+                      : 'border-clinical-100 bg-clinical-50 text-clinical-700'
+                  }`}
+                >
+                  {publishHint}
+                </div>
+                {sessionWarnings.length === 0 ? (
+                  <div className="rounded-2xl border border-safety-green/20 bg-safety-green/10 p-4 text-sm font-medium text-safety-green">
+                    No merge warnings currently raised.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {sessionWarnings.map((warning, index) => (
+                      <div key={`${warning}-${index}`} className="flex items-start gap-3 rounded-2xl border border-safety-yellow/20 bg-safety-yellow/10 p-4 text-sm text-safety-yellow">
+                        <FileWarning className="mt-0.5 h-4 w-4 shrink-0" />
+                        <span>{warning}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            <Card className="border-clinical-200 bg-white shadow-sm">
+              <CardHeader>
+                <div className="space-y-2">
+                  <CardTitle className="text-sm font-black uppercase tracking-[0.16em] text-clinical-500">Medication Draft</CardTitle>
                   <p className="text-sm text-clinical-600">
                     Review the merged safety reference before publishing. Focus on identity, interactions, contraindications, and dose guidance.
                   </p>
@@ -1137,18 +1504,12 @@ function PreparationSessionWorkspace() {
                     />
                   </div>
                 </div>
-                <div className="rounded-2xl border border-clinical-100 bg-clinical-50 p-4">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-clinical-400">Confidence</p>
-                  <p className="mt-2 text-xl font-black text-clinical-900">
-                    {typeof draft.confidence === 'number' ? `${draft.confidence}%` : '—'}
-                  </p>
-                </div>
               </CardContent>
             </Card>
 
             <Card className="border-clinical-200 bg-white shadow-sm">
             <CardHeader>
-              <CardTitle className="text-sm font-black uppercase tracking-[0.16em] text-clinical-500">Linked Ingredients</CardTitle>
+              <CardTitle className="text-sm font-black uppercase tracking-[0.16em] text-clinical-500">Ingredient Resolution</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-3">

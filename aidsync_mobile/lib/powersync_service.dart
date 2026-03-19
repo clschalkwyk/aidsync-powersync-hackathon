@@ -1079,6 +1079,29 @@ Future<String> createPatientRecord({
   return patientId;
 }
 
+Future<void> updatePatientRecordContext({
+  required String patientId,
+  required String sex,
+  required String pregnancyStatus,
+}) async {
+  final timestamp = DateTime.now().toUtc().toIso8601String();
+  await db.writeTransaction((tx) async {
+    await tx.execute(
+      '''
+        UPDATE patients
+        SET sex = ?, pregnancy_status = ?, updated_at = ?
+        WHERE id = ?
+      ''',
+      [
+        _orNull(sex),
+        _orNull(pregnancyStatus),
+        timestamp,
+        patientId,
+      ],
+    );
+  });
+}
+
 Future<String> startEncounterDraft(String patientId) async {
   final existingEncounterId = await findActiveEncounterForPatient(patientId);
   if (existingEncounterId != null) {

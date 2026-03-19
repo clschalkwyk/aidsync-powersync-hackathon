@@ -13,11 +13,8 @@ import {
   Clock,
   CheckCircle2,
   AlertTriangle,
-  Paperclip,
   ShieldCheck,
-  Scan,
   MessageSquare,
-  ChevronRight,
   Zap,
   FileText,
   Mic,
@@ -209,9 +206,8 @@ function EncounterDetailPage() {
   const noteOnlyCount = attentionState.noteOnlyCount
   const needsManualAudit = attentionState.needsAttention
   const hasVitals = sidebarVitals.length > 0
-  const hasEvidence = Boolean(encounter.scanned_inserts?.length || encounter.attachments?.length)
   const hasEncounterReview = Boolean(encounter.reviewed_at || encounter.supervisor_review_note)
-  const showSidebar = hasVitals || hasEvidence || canReviewEncounter || hasEncounterReview
+  const showSidebar = hasVitals || canReviewEncounter || hasEncounterReview
   const overallSeverity = highSeverityCount > 0 ? 'red' : warningCount > 0 || noteOnlyCount > 0 ? 'yellow' : 'green'
   const overallOutcomeLabel =
     narrative.safetyResult ||
@@ -433,12 +429,6 @@ function EncounterDetailPage() {
                                   Mark reviewed
                                 </Button>
                               ) : null}
-                              {check.scanned_insert_id && (
-                                <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-50 border-2 border-brand-100 shadow-sm">
-                                  <Scan className="h-4 w-4 text-brand-600" />
-                                  <span className="text-[10px] font-black text-brand-700 uppercase tracking-[0.1em]">Evidence via Lens</span>
-                                </div>
-                              )}
                             </div>
                           </div>
 
@@ -682,51 +672,6 @@ function EncounterDetailPage() {
                       {v.value}
                       {v.unit ? <span className="text-[9px] ml-1 font-black text-clinical-300 uppercase">{v.unit}</span> : null}
                     </p>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-          ) : null}
-
-          {/* Evidence Scans Card */}
-          {hasEvidence ? (
-          <Card className="rounded-3xl border-clinical-200 shadow-sm overflow-hidden">
-            <CardHeader className="py-4 px-6 border-b border-clinical-50 bg-white">
-              <CardTitle className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-clinical-500">
-                <Scan className="h-4 w-4" />
-                Field Evidence Trace
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-2">
-              <div className="space-y-1">
-                {encounter.scanned_inserts?.map((scan) => (
-                  <div key={scan.id} className="p-4 rounded-2xl bg-white border border-transparent hover:border-brand-200 hover:bg-brand-50/30 transition-all group cursor-pointer active:scale-[0.98]">
-                    <div className="flex items-center gap-4">
-                      <div className="h-10 w-10 rounded-xl bg-clinical-50 flex items-center justify-center text-clinical-400 shrink-0 group-hover:bg-brand-500 group-hover:text-white transition-all shadow-inner border border-clinical-100 group-hover:border-brand-600">
-                        <Scan className="h-5 w-5" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[10px] font-black text-clinical-900 uppercase tracking-widest truncate">Medication Reference Leaflet</p>
-                        <p className="text-[9px] font-bold text-clinical-400 mt-0.5 uppercase tracking-tighter">Certainty: {(scan.extraction_confidence || 0) * 100}%</p>
-                      </div>
-                      <ChevronRight className="h-3.5 w-3.5 text-clinical-200 group-hover:text-brand-600" />
-                    </div>
-                  </div>
-                ))}
-                
-                {encounter.attachments?.map((file) => (
-                  <div key={file.id} className="p-4 rounded-2xl bg-white border border-transparent hover:border-clinical-200 hover:bg-clinical-50/50 transition-all group cursor-pointer active:scale-[0.98]">
-                    <div className="flex items-center gap-4">
-                      <div className="h-10 w-10 rounded-xl bg-clinical-50 flex items-center justify-center text-clinical-400 shrink-0 border border-clinical-100 shadow-inner group-hover:border-clinical-300">
-                        <Paperclip className="h-5 w-5" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[10px] font-black text-clinical-700 uppercase tracking-widest truncate">{file.storage_path.split('/').pop()}</p>
-                        <p className="text-[9px] font-bold text-clinical-400 mt-0.5 uppercase tracking-widest italic">Binary Attachment</p>
-                      </div>
-                      <ChevronRight className="h-3.5 w-3.5 text-clinical-200 group-hover:text-clinical-600" />
-                    </div>
                   </div>
                 ))}
               </div>

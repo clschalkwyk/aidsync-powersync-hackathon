@@ -280,7 +280,7 @@ export async function deletePreparationSession(id: string) {
 
   const storagePaths = session.pages
     .map((page) => page.storage_path)
-    .filter((path): path is string => Boolean(path))
+    .filter((path): path is string => Boolean(path) && path.startsWith('sessions/'))
 
   if (storagePaths.length > 0) {
     const { error: storageError } = await supabase.storage
@@ -328,6 +328,44 @@ export async function uploadPreparationPage(sessionId: string, file: File, pageI
 
   if (error) throw error
   return data as LeafletPreparationPage
+}
+
+export async function importPreparationPdfPages(
+  sessionId: string,
+  pages: Array<{ pageIndex: number; text: string; sourceLabel: string }>
+) {
+  if (pages.length === 0) {
+    throw new Error('No PDF text pages were extracted.')
+  }
+
+  const payload: PreparationPageInsert[] = pages.map((page) => ({
+    session_id: sessionId,
+    page_index: page.pageIndex,
+    storage_path: `pdf-import/${page.sourceLabel}#page-${page.pageIndex}`,
+    status: 'extracted',
+    ocr_text: page.text,
+    extraction_json: {
+      source_mode: 'pdf_text',
+      page_summary: {
+        page_index: page.pageIndex,
+        signals: [],
+      },
+    } as any,
+    warnings_json: [],
+    error_text: null,
+  }))
+
+  const { error } = await (supabase
+    .from('leaflet_preparation_pages') as any)
+    .insert(payload)
+
+  if (error) throw error
+
+  await updatePreparationSession(sessionId, {
+    status: 'draft',
+  })
+
+  return fetchPreparationSessionDetail(sessionId)
 }
 
 export async function updatePreparationPage(id: string, updates: PreparationPageUpdate) {

@@ -680,13 +680,36 @@ class _PatientDetailScreenState extends State<_PatientDetailScreen> {
     }
   }
 
+  Future<void> _editPatientContext() async {
+    final detail = _detail;
+    if (detail == null) return;
+    final changed = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _PatientContextEditorSheet(detail: detail),
+    );
+    if (changed == true) {
+      await _loadDetail();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final detail = _detail;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Patient detail')),
+      appBar: AppBar(
+        title: const Text('Patient detail'),
+        actions: [
+          if (!_loading && _detail != null)
+            IconButton(
+              onPressed: _editPatientContext,
+              icon: const Icon(Icons.edit_outlined),
+              tooltip: 'Update patient context',
+            ),
+        ],
+      ),
       bottomNavigationBar: detail == null || _loading || _error != null
           ? null
           : SafeArea(
@@ -818,6 +841,129 @@ class _PatientDetailScreenState extends State<_PatientDetailScreen> {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _PatientContextEditorSheet extends StatefulWidget {
+  const _PatientContextEditorSheet({required this.detail});
+
+  final PatientRecordDetail detail;
+
+  @override
+  State<_PatientContextEditorSheet> createState() => _PatientContextEditorSheetState();
+}
+
+class _PatientContextEditorSheetState extends State<_PatientContextEditorSheet> {
+  late String _sex;
+  late String _pregnancyStatus;
+  bool _saving = false;
+
+  bool get _showPregnancyStatus => _sex == 'female' || _sex == 'other';
+
+  @override
+  void initState() {
+    super.initState();
+    _sex = widget.detail.patient.sex.isEmpty ? 'female' : widget.detail.patient.sex;
+    _pregnancyStatus = widget.detail.patient.pregnancyStatus.isEmpty
+        ? 'not_pregnant'
+        : widget.detail.patient.pregnancyStatus;
+  }
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    try {
+      final normalizedPregnancy = _showPregnancyStatus ? _pregnancyStatus : 'unknown';
+      await updatePatientRecordContext(
+        patientId: widget.detail.patient.id,
+        sex: _sex,
+        pregnancyStatus: normalizedPregnancy,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      if (!mounted) return;
+      showAppToast('Failed to update patient context: $e');
+      setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final viewInsets = MediaQuery.of(context).viewInsets;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 20, 20, viewInsets.bottom + 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Update patient context',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Adjust the current pregnancy context when the patient status changes. This updates local safety checks immediately.',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<String>(
+            initialValue: _sex,
+            decoration: const InputDecoration(labelText: 'Sex'),
+            items: const [
+              DropdownMenuItem(value: 'female', child: Text('Female')),
+              DropdownMenuItem(value: 'male', child: Text('Male')),
+              DropdownMenuItem(value: 'other', child: Text('Other')),
+              DropdownMenuItem(value: 'unknown', child: Text('Unknown')),
+            ],
+            onChanged: _saving
+                ? null
+                : (value) {
+                    if (value == null) return;
+                    setState(() {
+                      _sex = value;
+                      if (!_showPregnancyStatus) {
+                        _pregnancyStatus = 'unknown';
+                      } else if (_pregnancyStatus == 'unknown') {
+                        _pregnancyStatus = 'not_pregnant';
+                      }
+                    });
+                  },
+          ),
+          if (_showPregnancyStatus) ...[
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: _pregnancyStatus == 'unknown' ? 'not_pregnant' : _pregnancyStatus,
+              decoration: const InputDecoration(labelText: 'Pregnancy status'),
+              items: const [
+                DropdownMenuItem(value: 'not_pregnant', child: Text('Not pregnant')),
+                DropdownMenuItem(value: 'pregnant', child: Text('Pregnant')),
+                DropdownMenuItem(value: 'lactating', child: Text('Lactating')),
+                DropdownMenuItem(value: 'unknown', child: Text('Unknown')),
+              ],
+              onChanged: _saving ? null : (value) => setState(() => _pregnancyStatus = value ?? _pregnancyStatus),
+            ),
+          ],
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _saving ? null : () => Navigator.of(context).pop(false),
+                  child: const Text('Cancel'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FilledButton(
+                  onPressed: _saving ? null : _save,
+                  child: Text(_saving ? 'Saving...' : 'Save context'),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -1298,4 +1444,3 @@ class _MedicationCheckScreen extends StatelessWidget {
     );
   }
 }
-

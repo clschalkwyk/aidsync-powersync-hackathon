@@ -96,12 +96,15 @@ function OverviewPage() {
             Maintain high-fidelity medication reference data online, available anywhere offline.
           </p>
         </div>
-        <div className="flex items-center gap-3 bg-white px-5 py-3 rounded-2xl border border-clinical-100 shadow-sm shrink-0">
-          <div className="h-2 w-2 rounded-full bg-safety-green shadow-[0_0_10px_rgba(5,150,105,0.4)] animate-pulse" />
-          <span className="text-[10px] font-black text-clinical-900 uppercase tracking-widest">PowerSync Engine Online</span>
-          <div className="h-4 w-px bg-clinical-100 mx-1" />
-          <Clock className="h-4 w-4 text-clinical-400" />
-          <span className="text-xs font-black text-clinical-900 tabular-nums">{currentTime}</span>
+        <div className="flex items-center gap-4 bg-white px-6 py-4 rounded-[1.6rem] border border-clinical-100 shadow-sm shrink-0">
+          <div className="h-2.5 w-2.5 rounded-full bg-safety-green shadow-[0_0_10px_rgba(5,150,105,0.4)] animate-pulse" />
+          <div className="min-w-0">
+            <p className="text-[11px] font-black text-clinical-900 uppercase tracking-[0.18em]">PowerSync engine online</p>
+            <p className="text-[10px] font-bold text-clinical-400 uppercase tracking-[0.18em]">Processing active and ready for sync</p>
+          </div>
+          <div className="h-5 w-px bg-clinical-100 mx-1" />
+          <Clock className="h-4.5 w-4.5 text-clinical-400 shrink-0" />
+          <span className="text-sm font-black text-clinical-900 tabular-nums whitespace-nowrap">{currentTime}</span>
         </div>
       </div>
 
@@ -223,13 +226,15 @@ function OverviewPage() {
         {/* Action Queue / Manual Review */}
         <div className="lg:col-span-4 space-y-6 animate-in-slide-up" style={{ animationDelay: '0.3s' }}>
           <Card className="border-clinical-200 shadow-lg h-full flex flex-col overflow-hidden rounded-[2rem]">
-            <CardHeader className="py-6 px-8 border-b border-clinical-100 flex flex-row items-center justify-between bg-white shrink-0">
-              <div className="space-y-1">
-                <CardTitle className="text-sm font-black uppercase tracking-[0.2em] text-clinical-900">Flagged Field Decisions</CardTitle>
-                <CardDescription className="text-[10px] font-bold uppercase tracking-widest text-clinical-400">Warnings and note-only actions</CardDescription>
+            <CardHeader className="py-6 px-8 border-b border-clinical-100 flex flex-row items-start justify-between gap-4 bg-white shrink-0">
+              <div className="space-y-1.5 min-w-0">
+                <CardTitle className="text-sm font-black uppercase tracking-[0.16em] text-clinical-900">Flagged Field Decisions</CardTitle>
+                <CardDescription className="text-[11px] font-bold uppercase tracking-[0.14em] text-clinical-500 leading-relaxed">
+                  Warnings and note-only actions
+                </CardDescription>
               </div>
               {counts?.pendingChecks && counts.pendingChecks > 0 ? (
-                <Badge variant="warning" className="h-7 px-3 font-black uppercase tracking-tighter text-[10px] shadow-sm animate-clinical-pulse bg-safety-yellow text-white border-none">
+                <Badge variant="warning" className="h-8 min-w-[92px] justify-center px-3 font-black uppercase tracking-[0.08em] text-[11px] shadow-sm animate-clinical-pulse bg-safety-yellow text-white border-none self-start">
                   {counts.pendingChecks} FLAGGED
                 </Badge>
               ) : null}
@@ -254,26 +259,31 @@ function OverviewPage() {
                       key={review.id}
                       to="/encounters/$encounterId"
                       params={{ encounterId: review.encounter_id }}
-                      className="p-6 flex items-start gap-5 hover:bg-clinical-50/40 transition-all group relative overflow-hidden"
+                      className="block w-full px-8 py-5 hover:bg-clinical-50/70 transition-colors group relative"
                     >
-                      <div className="absolute top-0 left-0 bottom-0 w-1 bg-safety-yellow opacity-0 group-hover:opacity-100 transition-opacity" />
-                      <div className={`h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 shadow-inner group-hover:scale-110 transition-transform duration-500 ${review.severity === 'red' ? 'bg-safety-red/10 text-safety-red' : 'bg-safety-yellow/10 text-safety-yellow'}`}>
-                        <AlertTriangle className="h-6 w-6" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between mb-1.5">
-                          <p className="text-sm font-black text-clinical-900 truncate tracking-tight">
-                            {review.encounter?.patient?.full_name || 'Anonymous Patient'}
-                          </p>
-                          <span className="text-[9px] font-black text-clinical-300 font-mono">#{review.id.slice(0, 4)}</span>
+                      <div className="flex items-start gap-5">
+                        <div className={`h-12 w-12 rounded-[1.2rem] flex items-center justify-center shrink-0 shadow-inner group-hover:scale-105 transition-transform duration-300 ${review.severity === 'red' ? 'bg-safety-red/10 text-safety-red' : 'bg-safety-yellow/10 text-safety-yellow'}`}>
+                          <AlertTriangle className="h-6 w-6" />
                         </div>
-                        <div className="flex items-center gap-2.5">
-                          <Badge variant="info" className="py-0 px-2 h-5 text-[9px] font-black uppercase tracking-widest bg-clinical-50 text-clinical-500 border-none group-hover:bg-clinical-900 group-hover:text-white transition-colors">
-                            Flagged for Audit
-                          </Badge>
-                          <span className="text-[9px] font-bold text-clinical-400 uppercase tracking-widest">
-                            {formatDateTime(review.created_at)}
-                          </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 space-y-2">
+                              <p className="text-base font-black text-clinical-900 truncate tracking-tight">
+                                {review.encounter?.patient?.full_name || 'Anonymous Patient'}
+                              </p>
+                              <div className="flex flex-col gap-1.5 items-start">
+                                <span className="text-[10px] font-black uppercase tracking-[0.14em] text-clinical-500">
+                                  {review.severity === 'red' ? 'Critical severity' : 'Caution severity'}
+                                </span>
+                                <span className="text-[10px] font-bold text-clinical-500 uppercase tracking-[0.14em]">
+                                  {formatDateTime(review.created_at)}
+                                </span>
+                              </div>
+                            </div>
+                            <span className="shrink-0 rounded-full bg-clinical-50 px-2 py-1 text-[9px] font-black text-clinical-400 font-mono">
+                              #{review.id.slice(0, 4)}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </Link>

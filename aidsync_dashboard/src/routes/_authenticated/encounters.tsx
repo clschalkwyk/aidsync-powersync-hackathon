@@ -27,6 +27,7 @@ function EncountersPage() {
   }
 
   const [searchQuery, setSearchQuery] = useState('')
+  const [encounterFilter, setEncounterFilter] = useState<'all' | 'attention' | 'active'>('attention')
   const { data: encounters, isLoading } = useQuery({
     queryKey: ['encounters'],
     queryFn: async () => {
@@ -37,11 +38,29 @@ function EncountersPage() {
 
   const filteredEncounters = (encounters || [])?.filter((encounter) => {
     const query = searchQuery.toLowerCase()
-    return (
+    const interactionChecks =
+      (encounter as EncounterWithPatient & {
+        interaction_checks?: Array<{
+          severity?: string | null
+          clinician_action?: string | null
+          reviewed_at?: string | null
+        }>
+      }).interaction_checks || []
+    const attentionState = getEncounterAttentionState(interactionChecks)
+    const matchesQuery = (
       encounter.patient?.full_name?.toLowerCase().includes(query) ||
       encounter.status.toLowerCase().includes(query) ||
       encounter.encounter_type?.toLowerCase().includes(query)
     )
+    const isCompleted = encounter.status === 'completed' || encounter.status === 'synced'
+    const matchesFilter =
+      encounterFilter === 'all'
+        ? true
+        : encounterFilter === 'attention'
+          ? attentionState.needsAttention
+          : !isCompleted
+
+    return matchesQuery && matchesFilter
   })
 
   return (
@@ -73,6 +92,32 @@ function EncountersPage() {
             </div>
           </CardContent>
         </Card>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant={encounterFilter === 'active' ? 'primary' : 'outline'}
+            size="sm"
+            onClick={() => setEncounterFilter('active')}
+          >
+            Hide Completed
+          </Button>
+          <Button
+            type="button"
+            variant={encounterFilter === 'attention' ? 'primary' : 'outline'}
+            size="sm"
+            onClick={() => setEncounterFilter('attention')}
+          >
+            Needs Review
+          </Button>
+          <Button
+            type="button"
+            variant={encounterFilter === 'all' ? 'primary' : 'outline'}
+            size="sm"
+            onClick={() => setEncounterFilter('all')}
+          >
+            All Encounters
+          </Button>
+        </div>
       </div>
 
       {/* Results */}

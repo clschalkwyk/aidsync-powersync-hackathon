@@ -24,6 +24,7 @@ export const Route = createFileRoute('/_authenticated/patients')({
 
 function PatientsPage() {
   const [searchQuery, setSearchQuery] = useState('')
+  const [page, setPage] = useState(1)
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   const { data: patients, isLoading } = useQuery({
     queryKey: ['patients'],
@@ -38,6 +39,12 @@ function PatientsPage() {
       patient.location_text?.toLowerCase().includes(query)
     )
   })
+
+  const pageSize = 8
+  const totalPatients = filteredPatients?.length || 0
+  const totalPages = Math.max(1, Math.ceil(totalPatients / pageSize))
+  const currentPage = Math.min(page, totalPages)
+  const pagedPatients = filteredPatients?.slice((currentPage - 1) * pageSize, currentPage * pageSize) || []
 
   if (pathname !== '/patients') {
     return <Outlet />
@@ -66,7 +73,10 @@ function PatientsPage() {
               <Input
                 placeholder="Search by name, ID, or location..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value)
+                  setPage(1)
+                }}
                 className="pl-10 border-none shadow-none focus:ring-0 h-10 font-medium"
               />
             </div>
@@ -77,7 +87,7 @@ function PatientsPage() {
       {/* Results */}
       <div className="grid grid-cols-1 gap-4 sm:gap-6">
         {isLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+          <div className="space-y-4">
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <CardSkeleton key={i} />
             ))}
@@ -91,91 +101,122 @@ function PatientsPage() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            {filteredPatients?.map((patient) => (
-              <PatientCard key={patient.id} patient={patient} />
-            ))}
-          </div>
+          <>
+            <div className="rounded-[2rem] border border-clinical-200/70 bg-white shadow-sm overflow-hidden">
+              <div className="grid grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_140px] gap-4 px-6 py-4 border-b border-clinical-100 bg-clinical-50/40 text-[10px] font-black uppercase tracking-[0.18em] text-clinical-500">
+                <span>Patient</span>
+                <span>Location And Context</span>
+                <span>Date Of Birth</span>
+              </div>
+              <div className="divide-y divide-clinical-100">
+                {pagedPatients.map((patient) => (
+                  <PatientRow key={patient.id} patient={patient} />
+                ))}
+              </div>
+            </div>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-1">
+              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-clinical-500">
+                Showing {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, totalPatients)} of {totalPatients}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage === 1}
+                  onClick={() => setPage((value) => Math.max(1, value - 1))}
+                  className="h-10 px-4 text-[10px] font-black uppercase tracking-[0.14em]"
+                >
+                  Previous
+                </Button>
+                <div className="px-3 text-[11px] font-black uppercase tracking-[0.16em] text-clinical-500">
+                  Page {currentPage} / {totalPages}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setPage((value) => Math.min(totalPages, value + 1))}
+                  className="h-10 px-4 text-[10px] font-black uppercase tracking-[0.14em]"
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          </>
         )}
       </div>
     </div>
   )
 }
 
-function PatientCard({ patient }: { patient: Patient }) {
+function PatientRow({ patient }: { patient: Patient }) {
   const initials = patient.full_name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
   
   return (
-    <Card className="group h-full border-clinical-200/60 hover:border-clinical-400 hover:shadow-xl hover:shadow-clinical-900/5 transition-all duration-300 overflow-hidden relative">
-      <CardContent className="p-0 h-full">
-        <div className="flex items-stretch h-full">
-          <div className="w-2 group-hover:w-3 bg-clinical-100 group-hover:bg-clinical-500 transition-all shrink-0" />
-          <div className="p-6 flex-1 min-w-0">
-            <div className="flex items-start gap-4">
+    <div className="grid grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_140px] gap-4 px-6 py-5 hover:bg-clinical-50/50 transition-colors">
+      <div className="flex items-start gap-4 min-w-0">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-clinical-50 text-clinical-600 font-black text-lg shrink-0 shadow-inner">
+          {initials}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <Link
+              to="/patients/$patientId"
+              params={{ patientId: patient.id }}
+              className="min-w-0"
+            >
+              <h3 className="font-black text-clinical-900 text-lg leading-tight truncate tracking-tight hover:text-clinical-600 transition-colors">
+                {patient.full_name}
+              </h3>
+            </Link>
+            <div className="flex items-center gap-2 shrink-0">
+              <Button variant="ghost" size="sm" asChild className="h-9 w-9 p-0 rounded-xl text-clinical-400 hover:text-clinical-900 hover:bg-clinical-50">
+                <Link to="/patients/$patientId/edit" params={{ patientId: patient.id }}>
+                  <Edit className="h-4 w-4" />
+                </Link>
+              </Button>
               <Link
                 to="/patients/$patientId"
                 params={{ patientId: patient.id }}
-                className="group block min-w-0 flex-1"
+                className="h-8 w-8 rounded-full bg-clinical-50 flex items-center justify-center shrink-0 shadow-sm border border-clinical-100 hover:bg-clinical-100"
               >
-                <div className="flex items-start gap-4">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-clinical-50 group-hover:bg-clinical-100 text-clinical-600 font-black text-lg shrink-0 shadow-inner group-hover:scale-110 transition-transform duration-300">
-                    {initials}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <h3 className="font-black text-clinical-900 text-lg leading-tight group-hover:text-clinical-600 transition-colors truncate tracking-tight">
-                      {patient.full_name}
-                    </h3>
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 font-bold text-[10px] uppercase tracking-widest text-clinical-400">
-                      {patient.external_id && (
-                        <span className="font-mono bg-clinical-50 px-1.5 py-0.5 rounded">ID: {patient.external_id}</span>
-                      )}
-                      {patient.sex && (
-                        <span className="bg-clinical-50 px-1.5 py-0.5 rounded border border-clinical-100">{patient.sex}</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
+                <ChevronRight className="h-4 w-4 text-clinical-600" />
               </Link>
-              <div className="flex items-center gap-2 shrink-0">
-                <Button variant="ghost" size="sm" asChild className="h-9 w-9 p-0 rounded-xl text-clinical-400 hover:text-clinical-900 hover:bg-clinical-50">
-                  <Link to="/patients/$patientId/edit" params={{ patientId: patient.id }}>
-                    <Edit className="h-4 w-4" />
-                  </Link>
-                </Button>
-                <Link
-                  to="/patients/$patientId"
-                  params={{ patientId: patient.id }}
-                  className="h-8 w-8 rounded-full bg-clinical-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0 shrink-0 shadow-sm border border-clinical-100"
-                >
-                  <ChevronRight className="h-4 w-4 text-clinical-600" />
-                </Link>
-              </div>
-            </div>
-            
-            <div className="mt-6 flex flex-wrap items-center justify-between gap-2 pt-4 border-t border-clinical-50">
-              <div className="flex flex-wrap gap-2">
-                {patient.location_text && (
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-clinical-50/50 text-clinical-500 border border-clinical-50">
-                    <MapPin className="h-3 w-3" />
-                    <span className="text-[10px] font-bold truncate max-w-[120px] uppercase tracking-wider">{patient.location_text}</span>
-                  </div>
-                )}
-                {patient.pregnancy_status && (
-                  <Badge variant="info" className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 border-clinical-200">
-                    {patient.pregnancy_status}
-                  </Badge>
-                )}
-              </div>
-              {patient.dob && (
-                <div className="flex items-center gap-1 text-[10px] font-bold text-clinical-400 uppercase tracking-tighter">
-                  <Calendar className="h-3 w-3" />
-                  {formatDate(patient.dob)}
-                </div>
-              )}
             </div>
           </div>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 font-bold text-[10px] uppercase tracking-widest text-clinical-400">
+            {patient.external_id && (
+              <span className="font-mono bg-clinical-50 px-1.5 py-0.5 rounded">ID: {patient.external_id}</span>
+            )}
+            {patient.sex && (
+              <span className="bg-clinical-50 px-1.5 py-0.5 rounded border border-clinical-100">{patient.sex}</span>
+            )}
+          </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 content-start">
+        {patient.location_text && (
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-clinical-50/50 text-clinical-500 border border-clinical-50 min-w-0">
+            <MapPin className="h-3 w-3 shrink-0" />
+            <span className="text-[10px] font-bold truncate max-w-[180px] uppercase tracking-wider">{patient.location_text}</span>
+          </div>
+        )}
+        {patient.pregnancy_status && patient.pregnancy_status.toLowerCase() === 'pregnant' && (
+          <Badge variant="info" className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 border-clinical-200">
+            {patient.pregnancy_status}
+          </Badge>
+        )}
+      </div>
+      <div className="flex items-center gap-1 text-[10px] font-bold text-clinical-400 uppercase tracking-tighter justify-start lg:justify-end">
+        {patient.dob ? (
+          <>
+            <Calendar className="h-3 w-3" />
+            {formatDate(patient.dob)}
+          </>
+        ) : (
+          <span>Unknown</span>
+        )}
+      </div>
+    </div>
   )
 }

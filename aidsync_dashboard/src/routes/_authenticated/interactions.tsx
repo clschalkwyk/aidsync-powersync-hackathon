@@ -70,19 +70,19 @@ function InteractionsPage() {
   }
 
   return (
-    <div className="space-y-6 pb-12 animate-in-fade">
+    <div className="space-y-5 pb-10 animate-in-fade">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6">
-        <div className="space-y-1.5">
+      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+        <div className="space-y-1">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-[10px] font-black uppercase tracking-[0.4em] text-clinical-400">Reference Prep</span>
             <div className="h-1 w-1 rounded-full bg-clinical-200" />
             <span className="text-[10px] font-black uppercase tracking-[0.4em] text-clinical-600">Interaction Logic</span>
           </div>
-          <h2 className="text-3xl font-black text-clinical-900 tracking-tight leading-none">Safety Engine Rules</h2>
-          <p className="text-xs font-bold text-clinical-500 uppercase tracking-widest">Drug-to-Drug and Substance interaction definitions</p>
+          <h2 className="text-2xl sm:text-3xl font-black text-clinical-900 tracking-tight leading-none">Safety Engine Rules</h2>
+          <p className="text-[11px] font-bold text-clinical-500 uppercase tracking-[0.18em]">Drug-to-drug and substance interaction definitions</p>
         </div>
-        <Button asChild disabled={!canEdit} className="h-12 px-8 font-black uppercase tracking-widest text-[11px] shadow-xl shadow-clinical-600/10 active:scale-95 transition-all">
+        <Button asChild disabled={!canEdit} className="h-11 px-6 font-black uppercase tracking-widest text-[11px] shadow-lg shadow-clinical-600/10 active:scale-95 transition-all">
           <Link to="/interactions/new">
             <Plus className="h-4 w-4 mr-2" />
             Add Interaction Rule
@@ -103,20 +103,20 @@ function InteractionsPage() {
           <CardContent className="p-0">
             <div className="flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-clinical-100">
               <div className="relative flex-1">
-                <Search className="absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-clinical-400" />
+                <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-clinical-400" />
                 <Input
                   placeholder="Search by substance or clinical effect..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-14 border-none shadow-none focus:ring-0 h-14 text-base font-bold placeholder:text-clinical-300"
+                  className="pl-11 border-none shadow-none focus:ring-0 h-12 text-sm font-bold placeholder:text-clinical-300"
                 />
               </div>
-              <div className="flex items-center gap-4 px-6 py-2 bg-clinical-50/30">
+              <div className="flex items-center gap-3 px-4 py-2 bg-clinical-50/30">
                 <span className="text-[9px] font-black uppercase tracking-widest text-clinical-400 whitespace-nowrap">Severity</span>
                 <Select
                   value={severityFilter}
                   onChange={(e) => setSeverityFilter(e.target.value)}
-                  className="min-w-[160px] h-10 font-black uppercase tracking-widest text-[10px] border-clinical-200"
+                  className="min-w-[150px] h-9 font-black uppercase tracking-widest text-[10px] border-clinical-200"
                 >
                   <option value="all">All Levels</option>
                   <option value="low">Low</option>
@@ -131,10 +131,10 @@ function InteractionsPage() {
       </div>
 
       {/* Results */}
-      <div className="space-y-4 animate-in-slide-up" style={{ animationDelay: '0.15s' }}>
+      <div className="space-y-3 animate-in-slide-up" style={{ animationDelay: '0.15s' }}>
         {isLoading ? (
-          <div className="space-y-4">
-            {[1, 2, 3].map(i => <Skeleton key={i} className="h-48 rounded-3xl" />)}
+          <div className="space-y-3">
+            {[1, 2, 3].map(i => <Skeleton key={i} className="h-36 rounded-3xl" />)}
           </div>
         ) : filteredRules?.length === 0 ? (
           <div className="py-24 text-center bg-clinical-50/30 rounded-[2.5rem] border-2 border-dashed border-clinical-100">
@@ -151,7 +151,7 @@ function InteractionsPage() {
             </Button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-6">
+          <div className="grid grid-cols-1 gap-3">
             {filteredRules?.map((rule, idx) => (
               <div key={rule.id} className="animate-in-slide-up" style={{ animationDelay: `${0.15 + (idx * 0.03)}s` }}>
                 <InteractionRuleRow 
@@ -171,99 +171,75 @@ function InteractionsPage() {
 
 function InteractionRuleRow({ rule, canEdit, onDelete }: { rule: MedicationInteractionRule, canEdit: boolean, onDelete: () => void }) {
   const ingredientName = (rule as any).ingredient?.canonical_name || 'Unknown Ingredient'
+  const severityVariant =
+    rule.severity === 'severe' || rule.severity === 'high'
+      ? 'danger'
+      : rule.severity === 'medium'
+        ? 'warning'
+        : 'info'
 
   return (
-    <Card className="border-2 border-clinical-100 hover:border-clinical-400 hover:shadow-xl transition-all duration-500 overflow-hidden group active:scale-[0.995]">
+    <Card className="border border-clinical-100 hover:border-clinical-300 hover:shadow-sm transition-all duration-300 overflow-hidden">
       <CardContent className="p-0">
-        <div className="flex flex-col lg:flex-row">
-          {/* Severity Strip */}
-          <div className={`w-full lg:w-2 shrink-0 ${
-            rule.severity === 'severe' || rule.severity === 'high' ? 'bg-safety-red' : 
-            rule.severity === 'medium' ? 'bg-safety-yellow' : 'bg-clinical-400'
-          }`} />
-          
-          <div className="flex-1 p-6 sm:p-8">
-            <div className="flex flex-col lg:flex-row lg:items-start gap-8">
-              
-              {/* Context Column */}
-              <div className="lg:w-1/3 space-y-6">
-                <div className="flex items-center gap-3">
-                  <Badge variant={rule.severity === 'severe' || rule.severity === 'high' ? 'danger' : rule.severity === 'medium' ? 'warning' : 'info'} className="px-3 py-1 text-[10px] font-black uppercase tracking-widest h-7 border-none shadow-sm">
-                    {rule.severity} Severity
-                  </Badge>
-                  {!rule.is_active && (
-                    <Badge variant="default" className="text-[10px] font-black uppercase tracking-widest h-7 border-none bg-clinical-100 text-clinical-400">Inactive</Badge>
-                  )}
-                </div>
-
-                <div className="flex flex-col gap-3">
-                  <div className="flex items-center gap-3 p-3 rounded-xl bg-clinical-50 border border-clinical-100 shadow-inner group-hover:bg-white transition-all">
-                    <div className="h-8 w-8 rounded-lg bg-white flex items-center justify-center border border-clinical-100 shrink-0">
-                      <Beaker className="h-4 w-4 text-clinical-500" />
-                    </div>
-                    <span className="font-black text-clinical-900 text-sm tracking-tight truncate">{ingredientName}</span>
-                  </div>
-                  <div className="flex items-center justify-center">
-                    <div className="h-px bg-clinical-100 flex-1" />
-                    <div className="h-7 w-7 rounded-full bg-clinical-50 flex items-center justify-center border border-clinical-100 shrink-0 mx-2 shadow-sm">
-                      <ArrowRightLeft className="h-3 w-3 text-clinical-400" />
-                    </div>
-                    <div className="h-px bg-clinical-100 flex-1" />
-                  </div>
-                  <div className="flex items-center gap-3 p-3 rounded-xl bg-brand-50 border border-brand-100 shadow-inner group-hover:bg-white transition-all">
-                    <div className="h-8 w-8 rounded-lg bg-white flex items-center justify-center border border-brand-100 shrink-0 text-brand-600">
-                      <ShieldAlert className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="font-black text-brand-900 text-sm tracking-tight truncate">{rule.interacting_name}</p>
-                      <p className="text-[8px] font-black uppercase tracking-[0.2em] text-brand-400 mt-0.5">{rule.interacting_type}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Effect Column */}
-              <div className="flex-1 space-y-6 min-w-0">
-                <div className="space-y-2">
-                  <p className="text-[9px] font-black uppercase tracking-[0.3em] text-clinical-400 px-1">Clinical Interaction Effect</p>
-                  <div className="p-5 rounded-2xl bg-clinical-50/30 border border-clinical-100 group-hover:bg-white group-hover:border-clinical-200 transition-all shadow-inner group-hover:shadow-sm">
-                    <p className="text-base font-black text-clinical-900 leading-relaxed tracking-tight">
-                      {rule.effect_text}
-                    </p>
-                  </div>
-                </div>
-
-                {rule.guidance_text && (
-                  <div className="space-y-2">
-                    <p className="text-[9px] font-black uppercase tracking-[0.3em] text-clinical-400 px-1">Clinician Guidance</p>
-                    <div className="p-5 rounded-2xl bg-brand-50/20 border border-brand-100/50 italic text-sm font-bold text-clinical-700 leading-relaxed group-hover:bg-white transition-all">
-                      "{rule.guidance_text}"
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Actions Column */}
-              <div className="flex items-center lg:items-start justify-end gap-2 lg:pt-1">
-                <Button variant="outline" size="sm" asChild disabled={!canEdit} className="h-10 px-4 rounded-xl text-clinical-600 hover:text-clinical-900 border-clinical-200 bg-white hover:border-clinical-400 active:scale-95 transition-all shadow-sm group/edit">
-                  <Link to="/interactions/$ruleId/edit" params={{ ruleId: rule.id }}>
-                    <Edit className="h-3.5 w-3.5 mr-2 text-clinical-400 group-hover/edit:text-clinical-900 transition-colors" />
-                    <span className="text-[10px] font-black uppercase tracking-widest">Edit</span>
-                  </Link>
-                </Button>
-                <Button variant="ghost" size="sm" onClick={onDelete} disabled={!canEdit} className="h-10 w-10 p-0 rounded-xl text-clinical-300 hover:text-safety-red hover:bg-safety-red/5 border border-transparent hover:border-safety-red/10 active:scale-95 transition-all">
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
+        <div className="grid gap-3 p-4 xl:grid-cols-[minmax(0,320px)_minmax(0,1fr)_auto] xl:items-start">
+          <div className="min-w-0 space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant={severityVariant} className="px-2.5 py-1 text-[10px] font-black uppercase tracking-widest h-6 border-none shadow-none">
+                {rule.severity}
+              </Badge>
+              {!rule.is_active && (
+                <Badge variant="default" className="text-[10px] font-black uppercase tracking-widest h-6 border-none bg-clinical-100 text-clinical-400">
+                  Inactive
+                </Badge>
+              )}
+              <span className="text-[9px] font-black uppercase tracking-[0.18em] text-clinical-300">
+                {rule.interacting_type}
+              </span>
             </div>
-            
-            <div className="mt-8 pt-5 border-t border-clinical-50 flex flex-wrap items-center justify-between gap-4 text-[9px] font-black uppercase tracking-[0.2em] text-clinical-300">
-              <span className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-clinical-100 bg-clinical-50 shrink-0">
+                <Beaker className="h-3.5 w-3.5 text-clinical-500" />
+              </div>
+              <p className="min-w-0 truncate text-sm font-black tracking-tight text-clinical-900">
+                {ingredientName}
+              </p>
+              <ArrowRightLeft className="h-3.5 w-3.5 shrink-0 text-clinical-300" />
+              <p className="min-w-0 truncate text-sm font-black tracking-tight text-brand-900">
+                {rule.interacting_name}
+              </p>
+            </div>
+          </div>
+
+          <div className="min-w-0 space-y-2">
+            <div className="rounded-xl border border-clinical-100 bg-clinical-50/40 px-3 py-2.5">
+              <p className="line-clamp-2 text-sm font-bold leading-6 text-clinical-900">
+                {rule.effect_text}
+              </p>
+            </div>
+            {rule.guidance_text && (
+              <p className="line-clamp-2 text-xs font-bold leading-5 text-clinical-600">
+                Guidance: {rule.guidance_text}
+              </p>
+            )}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[9px] font-black uppercase tracking-[0.16em] text-clinical-300">
+              <span className="flex items-center gap-1.5">
                 <Info className="h-3 w-3" />
                 Source: {rule.source_name}
               </span>
-              <span>Last Validated: {formatDateTime(rule.updated_at)}</span>
+              <span>Validated: {formatDateTime(rule.updated_at)}</span>
             </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 xl:pl-2">
+            <Button variant="outline" size="sm" asChild disabled={!canEdit} className="h-8 px-3 rounded-lg text-clinical-600 hover:text-clinical-900 border-clinical-200 bg-white hover:border-clinical-400 shadow-none">
+              <Link to="/interactions/$ruleId/edit" params={{ ruleId: rule.id }}>
+                <Edit className="h-3.5 w-3.5 mr-1.5 text-clinical-400" />
+                <span className="text-[10px] font-black uppercase tracking-widest">Edit</span>
+              </Link>
+            </Button>
+            <Button variant="ghost" size="sm" onClick={onDelete} disabled={!canEdit} className="h-8 w-8 p-0 rounded-lg text-clinical-300 hover:text-safety-red hover:bg-safety-red/5 shadow-none">
+              <Trash2 className="h-4 w-4" />
+            </Button>
           </div>
         </div>
       </CardContent>

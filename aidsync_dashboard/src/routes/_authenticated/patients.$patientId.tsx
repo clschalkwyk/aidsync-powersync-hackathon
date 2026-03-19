@@ -1,5 +1,5 @@
 import { createFileRoute, useParams, Link, Outlet, useRouterState } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -20,7 +20,7 @@ import {
   Clock,
   Edit
 } from 'lucide-react'
-import { fetchPatientById } from '@/data/queries'
+import { fetchPatientById, updatePatient } from '@/data/queries'
 import { formatDate, parseEncounterNarrative, truncateText } from '@/lib/utils'
 
 export const Route = createFileRoute('/_authenticated/patients/$patientId')({
@@ -30,10 +30,21 @@ export const Route = createFileRoute('/_authenticated/patients/$patientId')({
 function MedicationPatientDetailPage() {
   const { patientId } = useParams({ from: '/_authenticated/patients/$patientId' }) as { patientId: string }
   const pathname = useRouterState({ select: (state) => state.location.pathname })
+  const queryClient = useQueryClient()
   const { data: patient, isLoading } = useQuery({
     queryKey: ['patient', patientId],
     queryFn: () => fetchPatientById(patientId),
   })
+  const pregnancyMutation = useMutation({
+    mutationFn: async (pregnancy_status: string) => updatePatient(patientId, { pregnancy_status }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['patients'] })
+      queryClient.invalidateQueries({ queryKey: ['patient', patientId] })
+    },
+  })
+
+  const canEditPregnancyStatus = ['female', 'other'].includes((patient?.sex || '').toLowerCase())
+  const pregnancyStatus = (patient?.pregnancy_status || 'unknown').toLowerCase()
 
   if (pathname !== `/patients/${patientId}`) {
     return <Outlet />
@@ -140,16 +151,38 @@ function MedicationPatientDetailPage() {
             {patient.location_text && (
               <span className="flex items-center gap-2">
                 <MapPin className="h-4 w-4 text-clinical-300" />
-                Region: {patient.location_text}
+                Location: {patient.location_text}
               </span>
             )}
           </div>
-          {patient.pregnancy_status && (
-            <div className="mt-6 flex items-center gap-2.5 px-4 py-2 bg-clinical-900 text-white rounded-xl w-fit text-[10px] font-black uppercase tracking-[0.2em] shadow-lg shadow-clinical-900/20">
-              <Droplets className="h-4 w-4 text-brand-400 animate-clinical-pulse" />
-              Pregnancy: {patient.pregnancy_status}
+          {canEditPregnancyStatus ? (
+            <div className="mt-6 flex flex-col gap-3">
+              <div className="flex items-center gap-2.5 text-[10px] font-black uppercase tracking-[0.18em] text-clinical-500">
+                <Droplets className="h-4 w-4 text-brand-500" />
+                Pregnancy status
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  ['pregnant', 'Pregnant'],
+                  ['not_pregnant', 'Not pregnant'],
+                  ['lactating', 'Lactating'],
+                  ['unknown', 'Unknown'],
+                ].map(([value, label]) => (
+                  <Button
+                    key={value}
+                    type="button"
+                    size="sm"
+                    variant={pregnancyStatus === value ? 'primary' : 'outline'}
+                    disabled={pregnancyMutation.isPending}
+                    onClick={() => pregnancyMutation.mutate(value)}
+                    className="h-10 px-4 font-black uppercase tracking-[0.14em] text-[10px] rounded-xl"
+                  >
+                    {label}
+                  </Button>
+                ))}
+              </div>
             </div>
-          )}
+          ) : null}
         </div>
       </div>
 

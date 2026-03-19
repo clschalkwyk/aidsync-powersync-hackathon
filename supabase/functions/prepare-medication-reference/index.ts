@@ -10,7 +10,7 @@ import {
 } from '../_shared/ocr_service.ts'
 
 const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
-const MAX_IMAGES = 10
+const MAX_OCR_PAGE_BATCH = 50
 const MAX_FILE_BYTES = 10 * 1024 * 1024
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -301,8 +301,8 @@ serve(async (request) => {
       return jsonResponse(400, { error: 'At least one OCR page is required for merge' })
     }
 
-    if (pages.length > MAX_IMAGES) {
-      return jsonResponse(400, { error: `Provide up to ${MAX_IMAGES} OCR pages only` })
+    if (pages.length > MAX_OCR_PAGE_BATCH) {
+      return jsonResponse(400, { error: `Provide up to ${MAX_OCR_PAGE_BATCH} OCR pages only` })
     }
 
     const result = await callOpenRouterTextMerge({
