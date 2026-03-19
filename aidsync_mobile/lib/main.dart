@@ -1,14 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:cactus/cactus.dart';
 import 'package:flutter/material.dart';
 import 'package:logging/logging.dart';
 import 'package:powersync/powersync.dart' show SyncStatus;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app_globals.dart';
-import 'cactus_voice_service.dart';
 import 'pin_lock_service.dart';
 import 'powersync_service.dart';
 
@@ -26,7 +24,6 @@ final startupLog = Logger('aidsync-mobile-startup');
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  CactusConfig.isTelemetryEnabled = false;
   _configureLogging();
   startupLog.info('AidSync Mobile startup build=$appBuildLabel');
   startupLog.info('Sync config present=${AppConfig.hasSyncConfig}');

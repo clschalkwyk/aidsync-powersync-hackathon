@@ -26,8 +26,6 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>AidSync records short clinician voice notes and transcribes them on-device for encounter capture.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

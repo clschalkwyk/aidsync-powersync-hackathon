@@ -37,6 +37,8 @@ class _PatientDetailSummary extends StatelessWidget {
     final theme = Theme.of(context);
     final patient = detail.patient;
     final riskTags = _patientRiskTags(patient);
+    final maxSystolic = detail.bloodPressureTrend
+        .fold<int>(0, (currentMax, item) => item.systolic > currentMax ? item.systolic : currentMax);
 
     return _Panel(
       child: Column(
@@ -137,9 +139,109 @@ class _PatientDetailSummary extends StatelessWidget {
               ],
             ),
           ),
+          if (detail.bloodPressureTrend.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF6FBFC),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.12)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.monitor_heart_outlined, color: theme.colorScheme.primary, size: 18),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Recent blood pressure',
+                        style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'From local encounter history on this device.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: detail.bloodPressureTrend
+                        .map(
+                          (reading) => Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: _BloodPressureTrendBar(
+                                reading: reading,
+                                maxSystolic: maxSystolic,
+                              ),
+                            ),
+                          ),
+                        )
+                        .toList(growable: false),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 8),
         ],
       ),
+    );
+  }
+}
+
+class _BloodPressureTrendBar extends StatelessWidget {
+  const _BloodPressureTrendBar({
+    required this.reading,
+    required this.maxSystolic,
+  });
+
+  final BloodPressureReading reading;
+  final int maxSystolic;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final heightFactor = maxSystolic <= 0 ? 0.4 : (reading.systolic / maxSystolic).clamp(0.35, 1.0);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          height: 64,
+          alignment: Alignment.bottomLeft,
+          child: FractionallySizedBox(
+            alignment: Alignment.bottomCenter,
+            heightFactor: heightFactor,
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFF78CEE0), Color(0xFF0E8AA8)],
+                ),
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          reading.value,
+          style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          reading.label,
+          style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+        ),
+      ],
     );
   }
 }
@@ -399,6 +501,260 @@ class _ResponsiveInputWrap extends StatelessWidget {
               .toList(growable: false),
         );
       },
+    );
+  }
+}
+
+class _VitalFieldSpec {
+  const _VitalFieldSpec({
+    required this.label,
+    required this.hint,
+    required this.controller,
+    required this.icon,
+    required this.unit,
+    this.keyboardType = TextInputType.text,
+  });
+
+  final String label;
+  final String hint;
+  final TextEditingController controller;
+  final IconData icon;
+  final String unit;
+  final TextInputType keyboardType;
+}
+
+class _VitalsCaptureGrid extends StatelessWidget {
+  const _VitalsCaptureGrid({
+    required this.fields,
+    required this.systolicController,
+    required this.diastolicController,
+    this.enabled = true,
+  });
+
+  final List<_VitalFieldSpec> fields;
+  final TextEditingController systolicController;
+  final TextEditingController diastolicController;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxWidth = constraints.maxWidth;
+        final columnCount = maxWidth < 520 ? 1 : 2;
+        final gap = 12.0;
+        final itemWidth = ((maxWidth - (gap * (columnCount - 1))) / columnCount).clamp(220.0, maxWidth);
+
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: [
+            SizedBox(
+              width: itemWidth,
+              child: _BloodPressureCaptureCard(
+                systolicController: systolicController,
+                diastolicController: diastolicController,
+                enabled: enabled,
+              ),
+            ),
+            ...fields.map(
+              (field) => SizedBox(
+                width: itemWidth,
+                child: _VitalCaptureCard(
+                  label: field.label,
+                  hint: field.hint,
+                  unit: field.unit,
+                  icon: field.icon,
+                  controller: field.controller,
+                  keyboardType: field.keyboardType,
+                  enabled: enabled,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _VitalCaptureCard extends StatelessWidget {
+  const _VitalCaptureCard({
+    required this.label,
+    required this.hint,
+    required this.unit,
+    required this.icon,
+    required this.controller,
+    required this.keyboardType,
+    required this.enabled,
+  });
+
+  final String label;
+  final String hint;
+  final String unit;
+  final IconData icon;
+  final TextEditingController controller;
+  final TextInputType keyboardType;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: theme.colorScheme.primary, size: 16),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(label, style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                    Text(
+                      unit,
+                      style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: controller,
+            enabled: enabled,
+            keyboardType: keyboardType,
+            decoration: InputDecoration(
+              labelText: label,
+              hintText: hint,
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BloodPressureCaptureCard extends StatelessWidget {
+  const _BloodPressureCaptureCard({
+    required this.systolicController,
+    required this.diastolicController,
+    required this.enabled,
+  });
+
+  final TextEditingController systolicController;
+  final TextEditingController diastolicController;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5FBFD),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(Icons.monitor_heart_outlined, color: theme.colorScheme.primary, size: 16),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Blood pressure',
+                      style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                    Text(
+                      'Capture systolic and diastolic separately',
+                      style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: systolicController,
+                  enabled: enabled,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Systolic',
+                    hintText: '120',
+                    isDense: true,
+                    contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: Text(
+                  '/',
+                  style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ),
+              Expanded(
+                child: TextField(
+                  controller: diastolicController,
+                  enabled: enabled,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Diastolic',
+                    hintText: '80',
+                    isDense: true,
+                    contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Recorded as mmHg',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -735,16 +1091,18 @@ class _Panel extends StatelessWidget {
     required this.child,
     this.background = Colors.white,
     this.borderColor,
+    this.padding = const EdgeInsets.all(20),
   });
 
   final Widget child;
   final Color background;
   final Color? borderColor;
+  final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: padding,
       decoration: BoxDecoration(
         color: background,
         borderRadius: BorderRadius.circular(24),

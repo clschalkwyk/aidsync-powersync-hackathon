@@ -18,18 +18,17 @@ class _EncounterWorkspaceScreenState extends State<_EncounterWorkspaceScreen> {
   bool _loading = true;
   bool _savingContext = false;
   bool _finalizing = false;
+  bool _cancelling = false;
   bool _contextExpanded = false;
-  bool _voiceRecording = false;
-  bool _voiceTranscribing = false;
-  String? _voiceStatus;
   String? _error;
+  String _voiceNoteTranscript = '';
 
   final _complaintController = TextEditingController();
   final _noteController = TextEditingController();
-  final _voiceNoteController = TextEditingController();
   final _temperatureController = TextEditingController();
   final _pulseController = TextEditingController();
-  final _bloodPressureController = TextEditingController();
+  final _bloodPressureSystolicController = TextEditingController();
+  final _bloodPressureDiastolicController = TextEditingController();
   final _respiratoryRateController = TextEditingController();
   final _oxygenSatController = TextEditingController();
   final _weightController = TextEditingController();
@@ -42,15 +41,12 @@ class _EncounterWorkspaceScreenState extends State<_EncounterWorkspaceScreen> {
 
   @override
   void dispose() {
-    if (_voiceRecording) {
-      unawaited(cactusVoiceNoteService.cancelRecording());
-    }
     _complaintController.dispose();
     _noteController.dispose();
-    _voiceNoteController.dispose();
     _temperatureController.dispose();
     _pulseController.dispose();
-    _bloodPressureController.dispose();
+    _bloodPressureSystolicController.dispose();
+    _bloodPressureDiastolicController.dispose();
     _respiratoryRateController.dispose();
     _oxygenSatController.dispose();
     _weightController.dispose();
@@ -67,10 +63,10 @@ class _EncounterWorkspaceScreenState extends State<_EncounterWorkspaceScreen> {
       if (!mounted) return;
       _complaintController.text = workspace.encounter.presentingComplaint ?? '';
       _noteController.text = workspace.encounter.clinicianNote ?? '';
-      _voiceNoteController.text = workspace.voiceNoteTranscript;
+      _voiceNoteTranscript = workspace.voiceNoteTranscript;
       _temperatureController.text = workspace.vitals['Temperature'] ?? '';
       _pulseController.text = workspace.vitals['Pulse'] ?? '';
-      _bloodPressureController.text = workspace.vitals['Blood pressure'] ?? '';
+      _seedBloodPressureControllers(workspace.vitals['Blood pressure'] ?? '');
       _respiratoryRateController.text = workspace.vitals['Respiratory rate'] ?? '';
       _oxygenSatController.text = workspace.vitals['Oxygen saturation'] ?? '';
       _weightController.text = workspace.vitals['Weight'] ?? '';
@@ -96,11 +92,11 @@ class _EncounterWorkspaceScreenState extends State<_EncounterWorkspaceScreen> {
         encounterId: widget.encounterId,
         presentingComplaint: _complaintController.text.trim(),
         clinicianNote: _noteController.text.trim(),
-        voiceNoteTranscript: _voiceNoteController.text.trim(),
+        voiceNoteTranscript: _voiceNoteTranscript,
         vitals: {
           'Temperature': _temperatureController.text.trim(),
           'Pulse': _pulseController.text.trim(),
-          'Blood pressure': _bloodPressureController.text.trim(),
+          'Blood pressure': _composeBloodPressureValue(),
           'Respiratory rate': _respiratoryRateController.text.trim(),
           'Oxygen saturation': _oxygenSatController.text.trim(),
           'Weight': _weightController.text.trim(),
@@ -122,6 +118,24 @@ class _EncounterWorkspaceScreenState extends State<_EncounterWorkspaceScreen> {
         setState(() => _savingContext = false);
       }
     }
+  }
+
+  void _seedBloodPressureControllers(String value) {
+    final parts = value.split('/');
+    _bloodPressureSystolicController.text = parts.isNotEmpty ? parts.first.trim() : '';
+    _bloodPressureDiastolicController.text = parts.length > 1 ? parts[1].trim() : '';
+  }
+
+  String _composeBloodPressureValue() {
+    final systolic = _bloodPressureSystolicController.text.trim();
+    final diastolic = _bloodPressureDiastolicController.text.trim();
+    if (systolic.isEmpty && diastolic.isEmpty) {
+      return '';
+    }
+    if (systolic.isEmpty || diastolic.isEmpty) {
+      return [systolic, diastolic].where((value) => value.isNotEmpty).join('/');
+    }
+    return '$systolic/$diastolic';
   }
 
   Future<void> _openAddMedicationCheck() async {
@@ -175,68 +189,50 @@ class _EncounterWorkspaceScreenState extends State<_EncounterWorkspaceScreen> {
     }
   }
 
-  Future<void> _startVoiceNoteCapture() async {
-    try {
-      final hasPermission = await cactusVoiceNoteService.ensurePermission();
-      if (!hasPermission) {
-        if (!mounted) return;
-        setState(() {
-          _voiceStatus = 'Microphone permission is required for voice notes.';
-        });
-        return;
-      }
-
-      await cactusVoiceNoteService.startRecording();
-      if (!mounted) return;
-      setState(() {
-        _voiceRecording = true;
-        _voiceStatus = 'Recording voice note...';
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _voiceStatus = 'Failed to start voice note capture: $e';
-      });
+  Future<void> _cancelDraftEncounter() async {
+    final workspace = _workspace;
+    if (workspace == null || workspace.encounter.status == 'completed' || _cancelling) {
+      return;
     }
-  }
 
-  Future<void> _stopVoiceNoteCapture() async {
-    setState(() {
-      _voiceRecording = false;
-      _voiceTranscribing = true;
-      _voiceStatus = 'Preparing Cactus speech model...';
-    });
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cancel draft encounter?'),
+        content: const Text(
+          'This will remove the local draft encounter and any unsynced medication checks saved inside it.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Keep draft'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Cancel draft'),
+          ),
+        ],
+      ),
+    );
 
+    if (confirmed != true || !mounted) {
+      return;
+    }
+
+    setState(() => _cancelling = true);
     try {
-      final transcript = await cactusVoiceNoteService.stopAndTranscribe(
-        onProgress: (status, progress) {
-          if (!mounted) return;
-          setState(() {
-            if (progress == null) {
-              _voiceStatus = status;
-            } else {
-              _voiceStatus = '$status ${(progress * 100).toStringAsFixed(0)}%';
-            }
-          });
-        },
-      );
+      await cancelEncounterDraft(widget.encounterId);
+      await widget.onChanged();
       if (!mounted) return;
-
-      final existing = _voiceNoteController.text.trim();
-      _voiceNoteController.text = existing.isEmpty
-          ? transcript
-          : '$existing\n\n$transcript';
-
-      setState(() {
-        _voiceTranscribing = false;
-        _voiceStatus = 'Voice note transcribed locally with Cactus.';
-      });
+      showAppToast('Draft encounter removed from this device');
+      Navigator.of(context).pop();
     } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _voiceTranscribing = false;
-        _voiceStatus = 'Voice note transcription failed: $e';
-      });
+      setState(() => _error = 'Failed to cancel encounter draft: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _cancelling = false);
+      }
     }
   }
 
@@ -251,20 +247,35 @@ class _EncounterWorkspaceScreenState extends State<_EncounterWorkspaceScreen> {
     final capturedVitals = <String, String>{
       'Temperature': _temperatureController.text.trim(),
       'Pulse': _pulseController.text.trim(),
-      'Blood pressure': _bloodPressureController.text.trim(),
+      'Blood pressure': _composeBloodPressureValue(),
       'Respiratory rate': _respiratoryRateController.text.trim(),
       'Oxygen saturation': _oxygenSatController.text.trim(),
       'Weight': _weightController.text.trim(),
     }..removeWhere((_, value) => value.isEmpty);
     final noteCount = _noteController.text.trim().isEmpty ? 0 : 1;
-    final voiceCount = _voiceNoteController.text.trim().isEmpty ? 0 : 1;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Encounter workspace')),
+      appBar: AppBar(
+        title: const Text('Encounter workspace'),
+        actions: [
+          if (workspace != null && workspace.encounter.status != 'completed')
+            TextButton.icon(
+              onPressed: _cancelling ? null : _cancelDraftEncounter,
+              icon: _cancelling
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.delete_outline),
+              label: const Text('Cancel draft'),
+            ),
+        ],
+      ),
       bottomNavigationBar: workspace == null || _loading || _error != null
           ? null
           : SafeArea(
-              minimum: const EdgeInsets.fromLTRB(20, 0, 20, 18),
+              minimum: const EdgeInsets.fromLTRB(16, 0, 16, 14),
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.96),
@@ -278,7 +289,7 @@ class _EncounterWorkspaceScreenState extends State<_EncounterWorkspaceScreen> {
                   ],
                 ),
                 child: Padding(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(10),
                   child: Row(
                     children: [
                       Expanded(
@@ -309,7 +320,7 @@ class _EncounterWorkspaceScreenState extends State<_EncounterWorkspaceScreen> {
             ),
       body: _ScreenBackdrop(
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 148),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 140),
           children: [
             if (_loading)
               const Padding(
@@ -326,8 +337,9 @@ class _EncounterWorkspaceScreenState extends State<_EncounterWorkspaceScreen> {
               )
             else if (workspace != null) ...[
               _EncounterHeaderCard(workspace: workspace),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
               _Panel(
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -391,7 +403,6 @@ class _EncounterWorkspaceScreenState extends State<_EncounterWorkspaceScreen> {
                           value: _complaintController.text.trim().isEmpty ? 'None' : 'Captured',
                         ),
                         _MetricItem(label: 'Notes', value: '$noteCount'),
-                        _MetricItem(label: 'Voice', value: '$voiceCount'),
                         _MetricItem(label: 'Vitals', value: '${capturedVitals.length}'),
                       ],
                     ),
@@ -411,82 +422,151 @@ class _EncounterWorkspaceScreenState extends State<_EncounterWorkspaceScreen> {
                       ),
                     ],
                     if (_contextExpanded) ...[
-                      const SizedBox(height: 14),
-                      TextField(
-                        controller: _complaintController,
-                        maxLines: 3,
-                        enabled: workspace.encounter.status != 'completed',
-                        decoration: const InputDecoration(
-                          labelText: 'Presenting complaint',
-                          hintText: 'Why is the patient being seen today?',
+                      const SizedBox(height: 12),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.assignment_outlined, color: theme.colorScheme.primary),
+                                const SizedBox(width: 10),
+                                Text(
+                                  'Clinical record capture',
+                                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              'Capture the visit reason and bedside observations in a cleaner field record.',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                                height: 1.45,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _noteController,
-                        maxLines: 4,
-                        enabled: workspace.encounter.status != 'completed',
-                        decoration: const InputDecoration(
-                          labelText: 'Clinician note',
-                          hintText: 'Capture key observations or plan for this visit.',
+                      const SizedBox(height: 10),
+                      _Panel(
+                        padding: const EdgeInsets.all(16),
+                        background: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.22),
+                        borderColor: theme.colorScheme.outlineVariant.withValues(alpha: 0.35),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const _Eyebrow('Clinical narrative'),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Presenting complaint and clinician note',
+                              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                            ),
+                            const SizedBox(height: 10),
+                            TextField(
+                              controller: _complaintController,
+                              maxLines: 2,
+                              enabled: workspace.encounter.status != 'completed',
+                              decoration: const InputDecoration(
+                                labelText: 'Presenting complaint',
+                                hintText: 'Why is the patient being seen today?',
+                                isDense: true,
+                                contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            TextField(
+                              controller: _noteController,
+                              maxLines: 3,
+                              enabled: workspace.encounter.status != 'completed',
+                              decoration: const InputDecoration(
+                                labelText: 'Clinician note',
+                                hintText: 'Capture key observations, treatment plan, or next step.',
+                                isDense: true,
+                                contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _voiceNoteController,
-                        maxLines: 3,
-                        enabled: workspace.encounter.status != 'completed',
-                        decoration: const InputDecoration(
-                          labelText: 'Voice note transcript',
-                          hintText: 'Optional transcript for a recorded voice note.',
+                      const SizedBox(height: 10),
+                      _Panel(
+                        padding: const EdgeInsets.all(16),
+                        background: const Color(0xFFF7FBFC),
+                        borderColor: theme.colorScheme.primary.withValues(alpha: 0.16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const _Eyebrow('Observed vitals'),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Structured bedside measurements',
+                              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Record only the measurements you have. Empty values stay out of the encounter record.',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                                height: 1.45,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            _VitalsCaptureGrid(
+                              enabled: workspace.encounter.status != 'completed',
+                              systolicController: _bloodPressureSystolicController,
+                              diastolicController: _bloodPressureDiastolicController,
+                              fields: [
+                                _VitalFieldSpec(
+                                  label: 'Temperature',
+                                  hint: '38.2',
+                                  unit: 'Celsius',
+                                  icon: Icons.device_thermostat_outlined,
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  controller: _temperatureController,
+                                ),
+                                _VitalFieldSpec(
+                                  label: 'Pulse',
+                                  hint: '92',
+                                  unit: 'beats per minute',
+                                  icon: Icons.favorite_outline,
+                                  keyboardType: TextInputType.number,
+                                  controller: _pulseController,
+                                ),
+                                _VitalFieldSpec(
+                                  label: 'Respiratory rate',
+                                  hint: '18',
+                                  unit: 'breaths per minute',
+                                  icon: Icons.air_outlined,
+                                  keyboardType: TextInputType.number,
+                                  controller: _respiratoryRateController,
+                                ),
+                                _VitalFieldSpec(
+                                  label: 'Oxygen saturation',
+                                  hint: '97',
+                                  unit: 'percent SpO2',
+                                  icon: Icons.bloodtype_outlined,
+                                  keyboardType: TextInputType.number,
+                                  controller: _oxygenSatController,
+                                ),
+                                _VitalFieldSpec(
+                                  label: 'Weight',
+                                  hint: '63',
+                                  unit: 'kilograms',
+                                  icon: Icons.monitor_weight_outlined,
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  controller: _weightController,
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _voiceRecording
-                                ? FilledButton.icon(
-                                    onPressed: _voiceTranscribing ? null : _stopVoiceNoteCapture,
-                                    icon: _voiceTranscribing
-                                        ? const SizedBox(
-                                            width: 16,
-                                            height: 16,
-                                            child: CircularProgressIndicator(strokeWidth: 2),
-                                          )
-                                        : const Icon(Icons.stop_circle_outlined),
-                                    label: const Text('Stop and transcribe'),
-                                  )
-                                : OutlinedButton.icon(
-                                    onPressed: workspace.encounter.status == 'completed' || _voiceTranscribing
-                                        ? null
-                                        : _startVoiceNoteCapture,
-                                    icon: const Icon(Icons.mic_none_outlined),
-                                    label: const Text('Capture voice note'),
-                                  ),
-                          ),
-                        ],
-                      ),
-                      if (_voiceStatus != null) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          _voiceStatus!,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 12),
-                      _ResponsiveInputWrap(
-                        fields: [
-                          _InputFieldSpec(label: 'Temperature', hint: 'e.g. 38.2 C', controller: _temperatureController),
-                          _InputFieldSpec(label: 'Pulse', hint: 'e.g. 92 bpm', controller: _pulseController),
-                          _InputFieldSpec(label: 'Blood pressure', hint: 'e.g. 120/80', controller: _bloodPressureController),
-                          _InputFieldSpec(label: 'Respiratory rate', hint: 'e.g. 18 /min', controller: _respiratoryRateController),
-                          _InputFieldSpec(label: 'Oxygen saturation', hint: 'e.g. 97%', controller: _oxygenSatController),
-                          _InputFieldSpec(label: 'Weight', hint: 'e.g. 63 kg', controller: _weightController),
-                        ],
                       ),
                       const SizedBox(height: 16),
                       SizedBox(
@@ -565,24 +645,22 @@ class _AddMedicationCheckScreenState extends State<_AddMedicationCheckScreen> {
     setState(() {
       _selectedMedication = medication;
       _assessment = null;
-      _error = null;
-    });
-  }
-
-  Future<void> _runCheck() async {
-    final medication = _selectedMedication;
-    if (medication == null) return;
-
-    setState(() {
       _evaluating = true;
       _error = null;
     });
+    await _runCheckFor(medication);
+  }
+
+  Future<void> _runCheckFor(MedicationOption medication) async {
     try {
       final assessment = await evaluateMedicationSuitability(
         patientId: widget.patientDetail.patient.id,
         medicationId: medication.id,
       );
       if (!mounted) return;
+      if (_selectedMedication?.id != medication.id) {
+        return;
+      }
       setState(() {
         _assessment = assessment;
         _action = switch (assessment.outcome) {
@@ -595,6 +673,9 @@ class _AddMedicationCheckScreenState extends State<_AddMedicationCheckScreen> {
       });
     } catch (e) {
       if (!mounted) return;
+      if (_selectedMedication?.id != medication.id) {
+        return;
+      }
       setState(() {
         _evaluating = false;
         _error = 'Failed to check medication safety: $e';
@@ -717,21 +798,28 @@ class _AddMedicationCheckScreenState extends State<_AddMedicationCheckScreen> {
                   if (_selectedMedication != null) ...[
                     const SizedBox(height: 12),
                     _SelectedMedicationCard(medication: _selectedMedication!),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: _evaluating ? null : _runCheck,
-                        icon: _evaluating
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Icon(Icons.health_and_safety_outlined),
-                        label: const Text('Check medication safety'),
+                    if (_evaluating) ...[
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Checking medication safety from local reference data...',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
+                    ],
                   ],
                 ],
               ),

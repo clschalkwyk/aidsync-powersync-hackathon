@@ -360,12 +360,30 @@ class PatientRecordDetail {
     required this.allergies,
     required this.conditions,
     required this.currentMedications,
+    required this.bloodPressureTrend,
   });
 
   final PatientOption patient;
   final List<Map<String, Object?>> allergies;
   final List<Map<String, Object?>> conditions;
   final List<Map<String, Object?>> currentMedications;
+  final List<BloodPressureReading> bloodPressureTrend;
+}
+
+class BloodPressureReading {
+  const BloodPressureReading({
+    required this.label,
+    required this.value,
+    required this.systolic,
+    required this.diastolic,
+    required this.recordedAt,
+  });
+
+  final String label;
+  final String value;
+  final int systolic;
+  final int diastolic;
+  final DateTime recordedAt;
 }
 
 class SafetyReason {
@@ -993,12 +1011,40 @@ Future<PatientRecordDetail> loadPatientRecordDetail(String patientId) async {
     WHERE patient_id = ?
     ORDER BY med_name
   ''', [patientId]);
+  final encounterRows = await db.getAll('''
+    SELECT notes_text, created_at
+    FROM encounters
+    WHERE patient_id = ?
+    ORDER BY created_at DESC
+    LIMIT 8
+  ''', [patientId]);
+  final bloodPressureTrend = encounterRows
+      .map((row) {
+        final context = _decodeEncounterContext('${row['notes_text'] ?? ''}');
+        final raw = (context.vitals['Blood pressure'] ?? '').trim();
+        if (raw.isEmpty) return null;
+        final parsed = _parseBloodPressureValue(raw);
+        if (parsed == null) return null;
+        final recordedAt = _parseDateTime('${row['created_at'] ?? ''}');
+        if (recordedAt == null) return null;
+        return BloodPressureReading(
+          label: _formatBloodPressureLabel(recordedAt),
+          value: '${parsed.$1}/${parsed.$2}',
+          systolic: parsed.$1,
+          diastolic: parsed.$2,
+          recordedAt: recordedAt,
+        );
+      })
+      .whereType<BloodPressureReading>()
+      .take(4)
+      .toList(growable: false);
 
   return PatientRecordDetail(
     patient: patient,
     allergies: allergies,
     conditions: conditions,
     currentMedications: currentMedications,
+    bloodPressureTrend: bloodPressureTrend,
   );
 }
 
@@ -1399,6 +1445,41 @@ Future<void> finalizeEncounter(String encounterId) async {
   });
 }
 
+Future<void> cancelEncounterDraft(String encounterId) async {
+  final rows = await db.getAll('''
+    SELECT status
+    FROM encounters
+    WHERE id = ?
+    LIMIT 1
+  ''', [encounterId]);
+  final encounter = rows.firstOrNull;
+  if (encounter == null) {
+    throw StateError('Encounter $encounterId is not available in local SQLite.');
+  }
+
+  final status = '${encounter['status'] ?? 'draft'}';
+  if (status == 'completed') {
+    throw StateError('Only draft encounters can be cancelled.');
+  }
+
+  await db.writeTransaction((tx) async {
+    await tx.execute(
+      '''
+        DELETE FROM interaction_checks
+        WHERE encounter_id = ?
+      ''',
+      [encounterId],
+    );
+    await tx.execute(
+      '''
+        DELETE FROM encounters
+        WHERE id = ?
+      ''',
+      [encounterId],
+    );
+  });
+}
+
 Future<String> saveEncounterCheck({
   required SafetyAssessment assessment,
   required String patientContext,
@@ -1758,6 +1839,25 @@ DateTime? _parseDateTime(String raw) {
     return null;
   }
   return DateTime.tryParse(raw)?.toLocal();
+}
+
+(int, int)? _parseBloodPressureValue(String raw) {
+  final match = RegExp(r'^\s*(\d{2,3})\s*/\s*(\d{2,3})\s*$').firstMatch(raw);
+  if (match == null) return null;
+  final systolic = int.tryParse(match.group(1)!);
+  final diastolic = int.tryParse(match.group(2)!);
+  if (systolic == null || diastolic == null) return null;
+  return (systolic, diastolic);
+}
+
+String _formatBloodPressureLabel(DateTime recordedAt) {
+  final now = DateTime.now();
+  final localDate = DateTime(recordedAt.year, recordedAt.month, recordedAt.day);
+  final today = DateTime(now.year, now.month, now.day);
+  final difference = today.difference(localDate).inDays;
+  if (difference == 0) return 'Today';
+  if (difference == 1) return 'Yesterday';
+  return '${recordedAt.day}/${recordedAt.month}';
 }
 
 String? _severityFromRank(int rank) {
