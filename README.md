@@ -264,6 +264,65 @@ Supporting infrastructure in this repo:
 - `aidsync_ocr_api/`
   - supporting OCR/extraction service for preparation flows
 
+## Getting Started
+
+### 1. Start the backend dependencies
+
+From the repo root:
+
+```bash
+supabase start
+```
+
+If you need a clean local database with the current demo dataset:
+
+```bash
+supabase db reset --local
+```
+
+### 2. Run the dashboard
+
+```bash
+cd aidsync_dashboard
+npm install
+npm run dev
+```
+
+The dashboard runs at:
+
+- [http://localhost:5173](http://localhost:5173)
+
+### 3. Run the mobile app
+
+```bash
+cd aidsync_mobile
+flutter pub get
+flutter run
+```
+
+Use a device or emulator with access to the local Supabase/PowerSync environment you are targeting.
+
+### 4. Optional supporting OCR service
+
+If you want the OCR/extraction support service running locally:
+
+```bash
+cd aidsync_ocr_api
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload
+```
+
+### 5. Recommended demo order
+
+1. start Supabase
+2. start the dashboard
+3. start the mobile app
+4. confirm medication reference data exists in the dashboard
+5. confirm the mobile app has synced patients and medications
+6. run one encounter flow and review the synced result back in the dashboard
+
 ## Current Scope Discipline
 
 The strongest version of AidSync today is:
