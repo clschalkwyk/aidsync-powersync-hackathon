@@ -53,7 +53,7 @@ Current implemented flow:
 - ingest medication source material as:
   - page images
   - leaflet PDFs
-  - leaflet PDF URLs
+  - leaflet PDF URLs when browser access allows it
 - extract text into a review draft
 - review and publish medication catalog data
 - review synced encounters
@@ -109,6 +109,9 @@ The product is a clinical safety assist plus field workflow tool.
 - `Supabase Storage`
 - `PowerSync Sync Streams`
 - Supabase Edge Function support for preparation workflows
+- `aidsync_ocr_api` as a supporting OCR/extraction service for preparation workflows
+
+The OCR API supports preparation and extraction work on the online side. It is not part of the critical on-device medication safety decision path.
 
 ## Why PowerSync Matters
 
@@ -240,6 +243,26 @@ aidsync_ocr_api/         OCR/extraction support service
 powersync/               PowerSync sync rules and notes
 supabase/                Supabase config, migrations, functions, and seed data
 ```
+
+## Running The Main Surfaces
+
+The main repo contains two primary product surfaces:
+
+- `aidsync_dashboard`
+  - online medication preparation and review
+  - run with the dashboard dev workflow in that folder
+- `aidsync_mobile`
+  - Flutter field app
+  - run with the Flutter workflow in that folder
+
+Supporting infrastructure in this repo:
+
+- `supabase/`
+  - schema, seed data, functions
+- `powersync/`
+  - sync rules and notes
+- `aidsync_ocr_api/`
+  - supporting OCR/extraction service for preparation flows
 
 ## Current Scope Discipline
 
