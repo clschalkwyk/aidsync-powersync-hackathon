@@ -99,6 +99,7 @@ The product is a clinical safety assist plus field workflow tool.
 
 - `React` / `Vite`
 - Supabase-backed preparation and review workflows
+- `TanStack AI` available in the dashboard stack for preparation and review helpers
 - medication catalog and rule management
 - encounter audit and supervisor review
 
@@ -112,6 +113,20 @@ The product is a clinical safety assist plus field workflow tool.
 - `aidsync_ocr_api` as a supporting OCR/extraction service for preparation workflows
 
 The OCR API supports preparation and extraction work on the online side. It is not part of the critical on-device medication safety decision path.
+
+## Sponsor Tech Notes
+
+This project uses sponsor technologies in different roles:
+
+- `PowerSync` is central to the product architecture
+- `TanStack Router` and `TanStack Query` power the dashboard application shell
+- `TanStack AI` is included in the dashboard stack for optional preparation and
+  review assistance
+
+Important boundary:
+
+- `TanStack AI` is not used as the medication safety decision engine
+- the mobile safety result still comes from deterministic on-device rules
 
 ## Why PowerSync Matters
 

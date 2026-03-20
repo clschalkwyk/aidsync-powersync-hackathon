@@ -41,10 +41,21 @@ reference data that the mobile app uses offline.
 - TypeScript
 - TanStack Router
 - TanStack Query
+- TanStack AI
 - Tailwind CSS
 - Supabase JS
 - Playwright
 - `pdfjs-dist` for PDF text extraction
+
+## TanStack AI In This Module
+
+The dashboard includes `TanStack AI` in the stack for optional preparation and
+review assistance on the online side.
+
+It is not the medication safety engine.
+
+Clinical safety decisions shown in the field flow still come from deterministic
+rules executed on-device in the mobile app.
 
 ## Environment
 
