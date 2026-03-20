@@ -1,140 +1,119 @@
 # AidSync Dashboard
 
-The online medication reference preparation, review, and audit surface for AidSync.
+The online preparation, review, and oversight surface for AidSync.
 
-## Overview
+## What This Module Does
 
-This dashboard serves as the online surface for:
+`aidsync_dashboard` is the online part of the product. It is used to:
 
-1. **Medication Reference Preparation** - Ingest and normalize medication leaflet/reference data
-2. **Review/Publish Workflows** - Review and approve medication safety fields
-3. **Encounter Review** - Review synced encounter outcomes from field devices
-4. **PowerSync Demo Support** - Visualize the sync flow between dashboard and field devices
+- create medication preparation sessions
+- ingest leaflet page images or regulator PDFs
+- build and review medication drafts before publish
+- manage medication, interaction, and contraindication reference data
+- review synced encounters from the mobile app
+- add supervisor review notes and resolve flagged decisions
+
+The dashboard is not the runtime safety engine. It prepares and reviews the
+reference data that the mobile app uses offline.
+
+## Main Flows
+
+### Medication Preparation
+
+1. Create a preparation session
+2. Upload page images or import a leaflet PDF
+3. Extract text and build a medication draft
+4. Review ingredients, interactions, and contraindications
+5. Publish to the shared medication catalog
+
+### Encounter Review
+
+1. Open synced encounters from field devices
+2. Filter to `Needs Review`
+3. Inspect medication checks, warnings, and clinician actions
+4. Mark checks reviewed and add supervisor review notes
+5. Let review metadata sync back to the mobile device through PowerSync
 
 ## Tech Stack
 
-- **React** - UI framework
-- **TanStack Router** - File-based routing
-- **TanStack Query** - Server state management
-- **TanStack Table** - Data tables
-- **Tailwind CSS** - Styling
-- **Supabase JS** - Backend client
+- React 18
+- Vite
+- TypeScript
+- TanStack Router
+- TanStack Query
+- Tailwind CSS
+- Supabase JS
+- Playwright
+- `pdfjs-dist` for PDF text extraction
 
-## Getting Started
+## Environment
 
-### Prerequisites
+Copy `.env.example` to `.env`.
 
-- Node.js 18+
-- npm or yarn
-- Supabase project (local or cloud)
-
-### Installation
+Required variables:
 
 ```bash
-# Install dependencies
-npm install
-
-# Set up environment variables
-cp .env.example .env
-# Edit .env with your Supabase credentials
-
-# Start development server
-npm run dev
-```
-
-### Environment Variables
-
-```
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
 ```
 
-## Project Structure
+Notes:
 
-```
-aidsync_dashboard/
-├── src/
-│   ├── components/        # React components
-│   │   ├── layout/        # Layout components (Sidebar, Header)
-│   │   └── ui/            # UI components (Button, Card, etc.)
-│   ├── data/              # Data layer (queries)
-│   ├── hooks/             # Custom React hooks
-│   ├── lib/               # Utilities and clients
-│   ├── routes/            # TanStack Router routes
-│   │   ├── _authenticated/  # Protected routes
-│   │   ├── login.tsx        # Login page
-│   │   └── index.tsx        # Root redirect
-│   ├── types/             # TypeScript types
-│   ├── index.css          # Global styles
-│   ├── main.tsx           # App entry point
-│   └── routeTree.gen.ts   # Generated route tree
-├── package.json
-├── tailwind.config.js
-├── tsconfig.json
-└── vite.config.ts
+- local PDF upload is the reliable PDF path
+- PDF URL import depends on the source allowing browser fetches
+- OCR-backed preparation also depends on the Supabase Edge Function environment
+  under [`/Users/raven/hackathons/powersync/supabase/README.md`](/Users/raven/hackathons/powersync/supabase/README.md)
+
+## Run Locally
+
+```bash
+cd /Users/raven/hackathons/powersync/aidsync_dashboard
+npm install
+npm run dev
 ```
 
-## Routes
+Useful commands:
 
-| Route | Description |
-|-------|-------------|
-| `/login` | Authentication page |
-| `/overview` | Dashboard overview with counts |
-| `/medications` | Medication catalog list |
-| `/medications/:id` | Medication detail |
-| `/patients` | Patient list |
-| `/patients/:id` | Patient detail |
-| `/encounters` | Encounter list |
-| `/encounters/:id` | Encounter detail |
-| `/interactions` | Interaction rules |
-| `/contraindications` | Contraindication rules |
+```bash
+npm run build
+npm run test:e2e
+npm run demo:dashboard
+```
 
-## Database Schema
+## Key Routes
 
-The dashboard uses the same Supabase schema as the mobile app:
+- `/overview`
+- `/medications`
+- `/medications/prepare`
+- `/medications/prepare-session/:sessionId`
+- `/patients`
+- `/patients/:patientId`
+- `/encounters`
+- `/encounters/:encounterId`
+- `/interactions`
+- `/contraindications`
 
-**Reference Tables:**
-- `active_ingredients` - Active pharmaceutical ingredients
-- `medication_catalog` - Medication reference data
-- `medication_catalog_ingredients` - Link table
-- `medication_interaction_rules` - Drug interaction rules
-- `medication_contraindication_rules` - Contraindication rules
+## Data Touch Points
 
-**Clinical Tables:**
-- `patients` - Patient records
-- `patient_allergies` - Allergy records
-- `patient_conditions` - Medical conditions
-- `current_medications` - Current medications
-- `encounters` - Care sessions
-- `vitals` - Vital signs
-- `interaction_checks` - Safety check results
+This module reads and writes primarily through Supabase tables such as:
 
-## Demo Flow
+- `medication_catalog`
+- `medication_catalog_ingredients`
+- `medication_interaction_rules`
+- `medication_contraindication_rules`
+- `patients`
+- `encounters`
+- `interaction_checks`
+- preparation-session tables used by the medication import workflow
 
-The dashboard supports the following PowerSync demonstration workflow:
+It also works with:
 
-1. **Prepare** - Medication reference data is prepared online in the dashboard
-2. **Sync** - Data syncs to field devices through PowerSync
-3. **Check** - Clinicians use synced data for offline safety checks
-4. **Record** - Encounter outcomes are recorded locally
-5. **Sync back** - Results sync back when connectivity returns for review
+- Supabase Storage for uploaded leaflet images
+- the `prepare-medication-reference` Edge Function for OCR-assisted draft building
 
-## Development
+## Related Modules
 
-For the shortest working setup path, see [SETUP_AND_TEST.md](./SETUP_AND_TEST.md).
-
-### Adding a New Route
-
-1. Create a new file in `src/routes/` following the TanStack Router file-based routing convention
-2. Export a `Route` component using `createFileRoute()`
-3. The route tree will be auto-generated
-
-### Adding a New Query
-
-1. Add the query function to `src/data/queries.ts`
-2. Use TanStack Query's `useQuery` hook in your component
-3. Types are derived from the database schema in `src/types/database.ts`
-
-## License
-
-Part of the AidSync hackathon project.
+- mobile runtime: [`/Users/raven/hackathons/powersync/aidsync_mobile/README.md`](/Users/raven/hackathons/powersync/aidsync_mobile/README.md)
+- OCR service: [`/Users/raven/hackathons/powersync/aidsync_ocr_api/README.md`](/Users/raven/hackathons/powersync/aidsync_ocr_api/README.md)
+- PowerSync config: [`/Users/raven/hackathons/powersync/powersync/README.md`](/Users/raven/hackathons/powersync/powersync/README.md)
+- backend schema and functions: [`/Users/raven/hackathons/powersync/supabase/README.md`](/Users/raven/hackathons/powersync/supabase/README.md)

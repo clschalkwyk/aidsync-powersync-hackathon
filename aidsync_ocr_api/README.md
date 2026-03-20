@@ -1,25 +1,42 @@
 # AidSync OCR API
 
-Standalone Python OCR service for the AidSync medication preparation workflow.
+Supporting OCR service for the dashboard medication preparation workflow.
 
-Purpose:
-- accept one page image at a time
-- run deterministic OCR
-- return raw page text and minimal metadata
-- leave medication dissection and merging to the existing LLM session workflow
+## What This Module Does
+
+`aidsync_ocr_api` accepts single leaflet page images, runs OCR, and returns raw
+page text plus light metadata.
+
+It is not the medication safety engine and it is not on the mobile runtime
+path. Its role is limited to preparation support for image-based intake.
+
+Typical use:
+
+1. dashboard uploads or references a leaflet page image
+2. OCR API extracts raw page text
+3. extracted text is written into the preparation session
+4. the dashboard and Edge Function build the medication draft from all pages
 
 ## Endpoints
 
 ### `GET /health`
-Returns a simple health payload.
+
+Basic service health check.
+
+### `GET /ping`
+
+Optional database connectivity check.
 
 ### `POST /ocr-page`
+
 Multipart upload for a single image.
 
 Form field:
-- `file`: image upload
+
+- `file`
 
 ### `POST /ocr-page-from-url`
+
 JSON body:
 
 ```json
@@ -34,12 +51,7 @@ JSON body:
 ```json
 {
   "ocr_text": "raw extracted text",
-  "warnings": [
-    {
-      "code": "image_resized",
-      "message": "Image resized to max dimension 2400px before OCR."
-    }
-  ],
+  "warnings": [],
   "metadata": {
     "source": "upload",
     "filename": "page-1.jpg",
@@ -52,63 +64,48 @@ JSON body:
 }
 ```
 
-## Local Run
+## Environment
+
+Copy `.env.example` to `.env`.
+
+Common variables:
 
 ```bash
-cd aidsync_ocr_api
+APP_ENV=development
+MAX_IMAGE_MB=12
+MAX_DIMENSION=2400
+TESSERACT_LANG=eng
+REQUEST_TIMEOUT_SECONDS=20
+OCR_API_KEY=
+DB_URL=
+DB_PING_TIMEOUT_SECONDS=5
+```
+
+If `OCR_API_KEY` is set, OCR endpoints require:
+
+```http
+X-API-Key: your_shared_secret
+```
+
+## Run Locally
+
+```bash
+cd /Users/raven/hackathons/powersync/aidsync_ocr_api
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8080
 ```
 
-## Docker Build
+## Docker
 
 ```bash
-cd aidsync_ocr_api
+cd /Users/raven/hackathons/powersync/aidsync_ocr_api
 docker build -t aidsync-ocr-api:local .
 docker run --rm -p 8080:8080 aidsync-ocr-api:local
 ```
 
-## GitLab Container Registry Example
+## Related Modules
 
-Replace the variables with your GitLab project details.
-
-```bash
-docker login registry.gitlab.com
-docker build -t registry.gitlab.com/<group>/<project>/aidsync-ocr-api:latest .
-docker push registry.gitlab.com/<group>/<project>/aidsync-ocr-api:latest
-```
-
-## Railway
-
-Use the pushed GitLab image in Railway:
-- create a new service
-- choose deploy from image
-- point Railway at the GitLab Container Registry image
-- expose port `8080`
-- set `OCR_API_KEY` in Railway and require callers to send `X-API-Key`
-
-## Optional API Key Protection
-
-If `OCR_API_KEY` is set, requests to OCR endpoints must include:
-
-```http
-X-API-Key: your_shared_secret
-```
-
-## Recommended Integration
-
-1. Dashboard uploads a page image to Supabase Storage.
-2. Dashboard or Edge Function calls this API per page.
-3. OCR text is written into `leaflet_preparation_pages.ocr_text`.
-4. One final LLM call uses all ordered page OCR text for session-level draft generation.
-
-## Database Connectivity
-
-Optional environment variables:
-
-- `DB_URL`
-- `DB_PING_TIMEOUT_SECONDS`
-
-Use `GET /ping` to verify the OCR service can reach the ETL/staging database.
+- dashboard: [`/Users/raven/hackathons/powersync/aidsync_dashboard/README.md`](/Users/raven/hackathons/powersync/aidsync_dashboard/README.md)
+- backend function and schema: [`/Users/raven/hackathons/powersync/supabase/README.md`](/Users/raven/hackathons/powersync/supabase/README.md)
