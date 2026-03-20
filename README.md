@@ -136,6 +136,101 @@ It is what makes the demo credible:
 10. Restore connectivity
 11. Review the synced encounter in the dashboard
 
+## Golden Path Diagrams
+
+### End-to-End Workflow
+
+```mermaid
+flowchart LR
+    subgraph D["Dashboard"]
+        D1["Create preparation session"]
+        D2["Import page images or leaflet PDF"]
+        D3["Extract text and build medication draft"]
+        D4["Review draft and publish catalog entry"]
+        D5["Review synced encounter"]
+        D6["Mark flagged check reviewed / add supervisor note"]
+    end
+
+    subgraph S["PowerSync + Supabase"]
+        S1["Store reference data in Supabase"]
+        S2["Sync Streams push patients + medications to device"]
+        S3["Store local encounter updates when connectivity returns"]
+        S4["Sync supervisor review note back to mobile"]
+    end
+
+    subgraph M["Mobile App"]
+        M1["Open synced patient from local SQLite"]
+        M2["Start or resume encounter"]
+        M3["Select medication from local catalog"]
+        M4["Run deterministic local safety check automatically"]
+        M5["Record clinician action, note, and vitals locally"]
+        M6["Continue working offline if needed"]
+    end
+
+    D1 --> D2 --> D3 --> D4 --> S1
+    S1 --> S2 --> M1
+    M1 --> M2 --> M3 --> M4 --> M5 --> M6
+    M5 --> S3 --> D5 --> D6 --> S4
+```
+
+### Sync And Review Sequence
+
+```mermaid
+sequenceDiagram
+    participant Dashboard
+    participant PowerSync
+    participant Mobile
+    participant Review
+
+    Dashboard->>Dashboard: Create preparation session
+    Dashboard->>Dashboard: Import images or leaflet PDF
+    Dashboard->>Dashboard: Build and review medication draft
+    Dashboard->>PowerSync: Publish medication reference data
+    PowerSync->>Mobile: Sync patients + medication catalog
+
+    Mobile->>Mobile: Open patient from local SQLite
+    Mobile->>Mobile: Start or resume encounter
+    Mobile->>Mobile: Select medication
+    Mobile->>Mobile: Run local deterministic safety check
+    alt Safe path
+        Mobile->>Mobile: Result = Safe to consider
+    else Caution path
+        Mobile->>Mobile: Result = Use caution
+    else Stop path
+        Mobile->>Mobile: Result = Do not give
+    end
+
+    Mobile->>Mobile: Save clinician action, note, vitals locally
+    opt Connectivity unavailable
+        Mobile->>Mobile: Keep encounter pending locally
+    end
+    Mobile->>PowerSync: Sync encounter when connectivity returns
+    PowerSync->>Review: Encounter available in dashboard
+    Review->>Review: Review flagged checks
+    Review->>PowerSync: Save supervisor review note
+    PowerSync->>Mobile: Sync supervisor review note back
+```
+
+### Seeded Demo Outcomes
+
+```mermaid
+flowchart TB
+    A["Select patient + medication on mobile"] --> B{"Local safety result"}
+
+    B --> C["David Moyo + Panado Capsules<br/>Safe to consider"]
+    B --> D["Amina Dlamini + Advil<br/>Use caution"]
+    B --> E["Amina Dlamini + Amoxil<br/>Do not give"]
+    B --> F["Themba Ndlovu + CIPLA LOPERAMIDE<br/>Do not give"]
+
+    C --> G["Save encounter locally"]
+    D --> G
+    E --> G
+    F --> G
+
+    G --> H["Sync back through PowerSync"]
+    H --> I["Dashboard review and audit trail"]
+```
+
 ## Current Workspace Layout
 
 ```txt
