@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { clickFirstVisible, expectEitherVisible, waitForDashboardReady } from './support/dashboard'
+import { clickFirstVisible, expectEitherVisible, openDashboardSection, waitForDashboardReady } from './support/dashboard'
 
 test.describe('dashboard golden paths', () => {
   test('overview surfaces the operational command layer', async ({ page }) => {
@@ -34,8 +34,7 @@ test.describe('dashboard golden paths', () => {
   })
 
   test('patient directory opens a synced clinical profile', async ({ page }) => {
-    await page.goto('/patients')
-    await waitForDashboardReady(page, /patient profiles/i)
+    await openDashboardSection(page, /^Patients$/i, /patient profiles/i)
 
     const patientCards = page.locator('a[href^="/patients/"]:not([href$="/edit"])').filter({
       has: page.locator('h3'),
@@ -52,8 +51,7 @@ test.describe('dashboard golden paths', () => {
   })
 
   test('encounter review queue opens a structured audit session', async ({ page }) => {
-    await page.goto('/encounters')
-    await waitForDashboardReady(page, /review queue/i)
+    await openDashboardSection(page, /^Encounters$/i, /review queue/i)
 
     const encounterLinks = page.locator('a[href^="/encounters/"]:not([href$="/edit"])')
     await expect(encounterLinks.first()).toBeVisible()
@@ -66,8 +64,7 @@ test.describe('dashboard golden paths', () => {
   })
 
   test('medication catalog opens a sync-ready reference detail', async ({ page }) => {
-    await page.goto('/medications')
-    await waitForDashboardReady(page, /medication reference/i)
+    await openDashboardSection(page, /^Medications$/i, /medication reference/i)
 
     const medicationCards = page
       .locator(
@@ -86,8 +83,7 @@ test.describe('dashboard golden paths', () => {
   })
 
   test('reference rule sections load with searchable results', async ({ page }) => {
-    await page.goto('/ingredients')
-    await waitForDashboardReady(page, /substance dictionary/i)
+    await openDashboardSection(page, /^Ingredients$/i, /substance dictionary/i)
     await expect(page.getByPlaceholder(/search by canonical name/i)).toBeVisible()
     await expectEitherVisible(
       page,
@@ -95,28 +91,17 @@ test.describe('dashboard golden paths', () => {
       page.getByText(/dictionary empty/i),
     )
 
-    await page.goto('/interactions')
-    await waitForDashboardReady(page, /safety engine rules/i)
+    await openDashboardSection(page, /^Interactions$/i, /safety engine rules/i)
     await expect(page.getByPlaceholder(/search by substance or clinical effect/i)).toBeVisible()
-    await expectEitherVisible(
-      page,
-      page.getByText(/clinical interaction effect/i).first(),
-      page.getByText(/no rules defined/i),
-    )
+    await expect(page.locator('body')).toContainText(/guidance:/i)
 
-    await page.goto('/contraindications')
-    await waitForDashboardReady(page, /^contraindications$/i)
+    await openDashboardSection(page, /^Contraindications$/i, /^contraindications$/i)
     await expect(page.getByPlaceholder(/search by substance or clinical factor/i)).toBeVisible()
-    await expectEitherVisible(
-      page,
-      page.getByText(/safety barrier/i).first(),
-      page.getByText(/no cautions found/i),
-    )
+    await expect(page.locator('body')).toContainText(/review system:/i)
   })
 
   test('preparation session workspace list is reachable from the medication section', async ({ page }) => {
-    await page.goto('/medications')
-    await waitForDashboardReady(page, /medication reference/i)
+    await openDashboardSection(page, /^Medications$/i, /medication reference/i)
 
     await page.getByRole('link', { name: /prepare reference/i }).click()
     await waitForDashboardReady(page, /medication preparation sessions/i)

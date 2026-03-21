@@ -2,6 +2,13 @@
 
 The online preparation, review, and oversight surface for AidSync.
 
+
+## Live Demo
+
+Public dashboard deployment:
+
+- [https://aidsync.co.za](https://aidsync.co.za)
+
 ## What This Module Does
 
 `aidsync_dashboard` is the online part of the product. It is used to:
@@ -89,6 +96,27 @@ Useful commands:
 npm run build
 npm run test:e2e
 npm run demo:dashboard
+npm run demo:video:capture
+npm run demo:video:voiceover
+npm run demo:video:render
+```
+
+## Demo Video Pipeline
+
+The dashboard now includes a small demo-video pipeline under `demo-video/`.
+
+It works like this:
+
+1. Playwright captures deterministic dashboard scenes
+2. a manifest stores the scene captions and narration text
+3. ElevenLabs can synthesize per-scene voiceover audio
+4. Remotion renders the final MP4
+
+Voiceover generation requires:
+
+```bash
+ELEVENLABS_API_KEY=...
+ELEVENLABS_VOICE_ID=...
 ```
 
 ## Key Routes

@@ -279,6 +279,13 @@ Supporting infrastructure in this repo:
 - `aidsync_ocr_api/`
   - supporting OCR/extraction service for preparation flows
 
+
+## Live Demo
+
+Public dashboard deployment:
+
+- [https://aidsync.co.za](https://aidsync.co.za)
+
 ## Getting Started
 
 ### 1. Start the backend dependencies

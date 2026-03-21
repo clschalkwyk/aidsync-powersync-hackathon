@@ -79,6 +79,25 @@ flutter build apk \
   --dart-define=POWERSYNC_URL=<powersync-url>
 ```
 
+## Demo Capture
+
+For a physical Android device demo, use:
+
+```bash
+cd /Users/raven/hackathons/powersync/aidsync_mobile
+./scripts/record_mobile_caution_demo.sh
+```
+
+This script:
+
+- assumes the device is connected with `adb`
+- assumes AidSync Mobile is already unlocked
+- assumes the app is already open on the `Patients` tab
+- records a short caution-path clip using the seeded `Amina Dlamini + Advil` flow
+- writes the resulting MP4 to `demo-artifacts/mobile-caution-demo.mp4`
+
+The app PIN screen still requires manual unlock before running the script because the secure PIN field does not accept reliable `adb` text injection on this device.
+
 ## Product Scope In This Module
 
 Built now:
