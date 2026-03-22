@@ -75,6 +75,22 @@ Not currently represented as core product behavior:
 - AI-generated clinical summaries
 - decorative audit/evidence panels without real workflow value
 
+### `aidsync_ocr_api`
+
+The OCR API is a supporting online service for image-based preparation intake.
+
+Current implemented role:
+
+- accept single leaflet page images for OCR
+- return raw extracted page text and light metadata
+- support the dashboard preparation workflow when source material is image-based
+- stay off the critical on-device medication safety path
+
+Deployment note:
+
+- the OCR API is deployed separately from the dashboard and currently runs on `Railway`
+- it supports preparation workflows only; it does not participate in mobile runtime safety decisions
+
 ## What AidSync Is Not
 
 AidSync is not:

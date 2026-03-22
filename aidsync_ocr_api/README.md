@@ -17,6 +17,12 @@ Typical use:
 3. extracted text is written into the preparation session
 4. the dashboard and Edge Function build the medication draft from all pages
 
+## Deployment
+
+For the current demo stack, this service is deployed separately and runs on `Railway`.
+
+That deployment is used as an OCR/extraction helper for the online preparation workflow. It is not part of the mobile runtime path and it is not used for on-device medication safety decisions.
+
 ## Endpoints
 
 ### `GET /health`
