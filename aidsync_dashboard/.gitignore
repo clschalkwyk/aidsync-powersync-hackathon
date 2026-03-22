@@ -42,6 +42,12 @@ coverage
 playwright-report
 test-results
 playwright/.auth
+tests/e2e/*.capture.spec.ts
+demo-video/artifacts/current
+demo-video/remotion/public/generated
+public/demo-video-generated
 
 # TanStack Router
 routeTree.gen.ts.cache
+
+demo-video/

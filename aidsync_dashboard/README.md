@@ -73,6 +73,7 @@ Required variables:
 ```bash
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
+VITE_PUBLIC_SITE_URL=https://aidsync.co.za/login
 ```
 
 Notes:
@@ -81,6 +82,7 @@ Notes:
 - PDF URL import depends on the source allowing browser fetches
 - OCR-backed preparation also depends on the Supabase Edge Function environment
   under [`/Users/raven/hackathons/powersync/supabase/README.md`](/Users/raven/hackathons/powersync/supabase/README.md)
+- `VITE_PUBLIC_SITE_URL` should point at the deployed login URL used in auth emails
 
 ## Run Locally
 

@@ -78,10 +78,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signUp(email: string, password: string, fullName: string) {
+    const emailRedirectTo =
+      import.meta.env.VITE_PUBLIC_SITE_URL?.trim() ||
+      (typeof window !== 'undefined' ? `${window.location.origin}/login` : undefined)
+
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
+        emailRedirectTo,
         data: {
           full_name: fullName,
         },

@@ -622,7 +622,37 @@ Future<void> _ensureFreshSupabaseSession() async {
   }
 
   log.info('Refreshing Supabase session before PowerSync connection');
-  await auth.refreshSession();
+  try {
+    await auth.refreshSession();
+  } catch (error, stackTrace) {
+    if (isRecoverableAuthRefreshError(error)) {
+      log.warning('Clearing invalid stored Supabase session after refresh failure: $error');
+      await clearInvalidSupabaseSession();
+      return;
+    }
+    Error.throwWithStackTrace(error, stackTrace);
+  }
+}
+
+bool isRecoverableAuthRefreshError(Object error) {
+  if (error is! AuthException) {
+    return false;
+  }
+
+  final code = error is AuthApiException ? error.code?.toLowerCase() : null;
+  final message = error.message.toLowerCase();
+
+  return code == 'refresh_token_not_found' ||
+      message.contains('refresh token not found') ||
+      message.contains('invalid refresh token');
+}
+
+Future<void> clearInvalidSupabaseSession() async {
+  try {
+    await Supabase.instance.client.auth.signOut();
+  } catch (error) {
+    log.warning('Local Supabase sign-out after invalid refresh token also failed: $error');
+  }
 }
 
 Future<void> _repairLocalSchemaIfNeeded() async {

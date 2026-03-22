@@ -16,8 +16,10 @@ max_rows = 1000
 
 [auth]
 enabled = true
-site_url = "http://localhost:3000"
+site_url = "https://aidsync.co.za"
 additional_redirect_urls = [
+  "https://aidsync.co.za",
+  "https://aidsync.co.za/login",
   "http://localhost:3000",
   "http://localhost:8080",
   "http://localhost:5173"

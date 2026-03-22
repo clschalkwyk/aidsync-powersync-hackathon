@@ -46,3 +46,5 @@ app.*.map.json
 
 # Mobile demo artifacts
 demo-artifacts/
+scripts/record_mobile_*_demo.sh
+scripts/record_mobile_*_segment.sh

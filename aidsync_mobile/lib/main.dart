@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ui' show PlatformDispatcher;
 
 import 'package:flutter/material.dart';
 import 'package:logging/logging.dart';
@@ -23,16 +24,33 @@ const appBuildLabel = String.fromEnvironment(
 final startupLog = Logger('aidsync-mobile-startup');
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  _configureLogging();
-  startupLog.info('AidSync Mobile startup build=$appBuildLabel');
-  startupLog.info('Sync config present=${AppConfig.hasSyncConfig}');
-  if (!AppConfig.hasSyncConfig) {
-    startupLog.warning('Missing config: ${AppConfig.missing.join(', ')}');
-  }
+  await runZonedGuarded(() async {
+    WidgetsFlutterBinding.ensureInitialized();
+    _configureLogging();
+    PlatformDispatcher.instance.onError = (error, stackTrace) {
+      if (isRecoverableAuthRefreshError(error)) {
+        startupLog.warning('Recoverable auth error reached platform handler: $error');
+        unawaited(clearInvalidSupabaseSession());
+        return true;
+      }
+      return false;
+    };
+    startupLog.info('AidSync Mobile startup build=$appBuildLabel');
+    startupLog.info('Sync config present=${AppConfig.hasSyncConfig}');
+    if (!AppConfig.hasSyncConfig) {
+      startupLog.warning('Missing config: ${AppConfig.missing.join(', ')}');
+    }
 
-  await initializeSupabaseIfConfigured();
-  runApp(const AidSyncMobileApp());
+    await initializeSupabaseIfConfigured();
+    runApp(const AidSyncMobileApp());
+  }, (error, stackTrace) {
+    if (isRecoverableAuthRefreshError(error)) {
+      startupLog.warning('Recoverable auth error reached zone handler: $error');
+      unawaited(clearInvalidSupabaseSession());
+      return;
+    }
+    startupLog.severe('Unhandled startup error', error, stackTrace);
+  });
 }
 
 void _configureLogging() {

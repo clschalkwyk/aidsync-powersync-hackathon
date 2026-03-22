@@ -891,35 +891,59 @@ class _StatusBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final hasLocalData = (snapshot?.counts.values.fold<int>(0, (a, b) => a + b) ?? 0) > 0;
-    final isLocalOnly = restoredSession && hasLocalData && (status == null || !status!.connected);
+    final isConnected = status?.connected == true;
+    final isDownloading = status?.downloading == true;
+    final isLocalOnly = restoredSession && hasLocalData && !isConnected;
 
     late final Color bg;
     late final Color fg;
     late final IconData icon;
+    late final String modeLabel;
     late final String title;
     late final String body;
+    late final Color modeForeground;
+    late final Color modeBackground;
 
-    if (status != null && status!.connected) {
+    if (isConnected && isDownloading) {
       bg = theme.colorScheme.primaryContainer;
       fg = theme.colorScheme.onPrimaryContainer;
+      icon = Icons.sync;
+      modeLabel = 'ONLINE';
+      title = 'Connected and syncing';
+      body = 'PowerSync is online and downloading the latest dashboard updates to this device.';
+      modeForeground = const Color(0xFF0F5132);
+      modeBackground = Colors.white.withValues(alpha: 0.7);
+    } else if (isConnected) {
+      bg = const Color(0xFFE7F5F0);
+      fg = const Color(0xFF123B2A);
       icon = Icons.cloud_done;
-      title = status!.downloading ? 'Syncing updates' : 'Device ready';
-      body = status!.downloading
-          ? 'PowerSync is connected and downloading updates from the backend.'
-          : 'Local data is ready and PowerSync is connected.';
+      modeLabel = 'ONLINE';
+      title = 'Connected and ready';
+      body = 'Local data is current. New encounters can still be recorded locally if the signal drops.';
+      modeForeground = const Color(0xFF0F5132);
+      modeBackground = Colors.white.withValues(alpha: 0.82);
     } else if (isLocalOnly) {
-      bg = theme.colorScheme.tertiaryContainer;
-      fg = theme.colorScheme.onTertiaryContainer;
-      icon = Icons.lock_clock;
-      title = 'Local-only mode';
-      body = 'A previous session and local SQLite data are available. Care workflows can continue while sync is paused.';
+      bg = const Color(0xFFFFF4DB);
+      fg = const Color(0xFF5C4300);
+      icon = Icons.offline_bolt;
+      modeLabel = 'OFFLINE';
+      title = 'Working from local data';
+      body = 'Patient records and medication references are available on-device. Encounters will sync when connectivity returns.';
+      modeForeground = const Color(0xFF7A5200);
+      modeBackground = Colors.white.withValues(alpha: 0.72);
     } else {
       bg = theme.colorScheme.surfaceContainerHighest;
       fg = theme.colorScheme.onSurface;
       icon = Icons.wifi_off;
-      title = 'Sync paused';
-      body = 'Connect online again to refresh the session and resume PowerSync.';
+      modeLabel = 'OFFLINE';
+      title = 'Reconnect to refresh';
+      body = 'A live sync session is not active yet. Go online and sign in again to refresh local data.';
+      modeForeground = theme.colorScheme.onSurface;
+      modeBackground = Colors.white.withValues(alpha: 0.6);
     }
+
+    final patientCount = snapshot?.counts['patients'] ?? 0;
+    final medicationCount = snapshot?.counts['medication_catalog'] ?? 0;
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -930,25 +954,50 @@ class _StatusBanner extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: fg),
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.55),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(icon, color: fg),
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: theme.textTheme.titleMedium?.copyWith(color: fg, fontWeight: FontWeight.w700)),
-                const SizedBox(height: 4),
-                Text(body, style: theme.textTheme.bodyMedium?.copyWith(color: fg, height: 1.5)),
-                if (snapshot != null) ...[
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      _StatusPill(label: '${snapshot!.counts['patients'] ?? 0} patients', foreground: fg),
-                      const SizedBox(width: 8),
-                      _StatusPill(label: '${snapshot!.counts['medication_catalog'] ?? 0} medications', foreground: fg),
-                    ],
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: modeBackground,
+                    borderRadius: BorderRadius.circular(999),
                   ),
-                ],
+                  child: Text(
+                    modeLabel,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: modeForeground,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.0,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(title, style: theme.textTheme.titleMedium?.copyWith(color: fg, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 4),
+                Text(body, style: theme.textTheme.bodyMedium?.copyWith(color: fg, height: 1.45)),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _StatusPill(label: '$patientCount patients on device', foreground: fg),
+                    _StatusPill(label: '$medicationCount medications on device', foreground: fg),
+                    if (status?.lastSyncedAt != null)
+                      _StatusPill(label: 'Last sync ${_formatRelativeTime(status!.lastSyncedAt!)}', foreground: fg),
+                  ],
+                ),
               ],
             ),
           ),
